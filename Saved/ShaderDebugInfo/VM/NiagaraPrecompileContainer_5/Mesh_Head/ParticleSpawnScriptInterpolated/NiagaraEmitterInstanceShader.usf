@@ -1,0 +1,3204 @@
+#line 1 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+#line 6 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+#pragma warning(disable:4008)
+#line 7 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+#line 1 "/Engine/Public/Platform.ush"
+#line 9 "/Engine/Public/Platform.ush"
+#line 1 "FP16Math.ush"
+#line 10 "/Engine/Public/Platform.ush"
+#line 43 "/Engine/Public/Platform.ush"
+#line 1 "ShaderVersion.ush"
+#line 44 "/Engine/Public/Platform.ush"
+#line 595 "/Engine/Public/Platform.ush"
+float min3( float a, float b, float c )
+{
+	return min( a, min( b, c ) );
+}
+
+float max3( float a, float b, float c )
+{
+	return max( a, max( b, c ) );
+}
+
+float2 min3( float2 a, float2 b, float2 c )
+{
+	return float2(
+		min3( a.x, b.x, c.x ),
+		min3( a.y, b.y, c.y )
+	);
+}
+
+float2 max3( float2 a, float2 b, float2 c )
+{
+	return float2(
+		max3( a.x, b.x, c.x ),
+		max3( a.y, b.y, c.y )
+	);
+}
+
+float3 max3( float3 a, float3 b, float3 c )
+{
+	return float3(
+		max3( a.x, b.x, c.x ),
+		max3( a.y, b.y, c.y ),
+		max3( a.z, b.z, c.z )
+	);
+}
+
+float3 min3( float3 a, float3 b, float3 c )
+{
+	return float3(
+		min3( a.x, b.x, c.x ),
+		min3( a.y, b.y, c.y ),
+		min3( a.z, b.z, c.z )
+	);
+}
+
+float4 min3( float4 a, float4 b, float4 c )
+{
+	return float4(
+		min3( a.x, b.x, c.x ),
+		min3( a.y, b.y, c.y ),
+		min3( a.z, b.z, c.z ),
+		min3( a.w, b.w, c.w )
+	);
+}
+
+float4 max3( float4 a, float4 b, float4 c )
+{
+	return float4(
+		max3( a.x, b.x, c.x ),
+		max3( a.y, b.y, c.y ),
+		max3( a.z, b.z, c.z ),
+		max3( a.w, b.w, c.w )
+	);
+}
+
+
+
+
+float UnpackByte0(uint v) { return float(v & 0xff); }
+float UnpackByte1(uint v) { return float((v >> 8) & 0xff); }
+float UnpackByte2(uint v) { return float((v >> 16) & 0xff); }
+float UnpackByte3(uint v) { return float(v >> 24); }
+#line 8 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+
+
+
+
+
+
+	const static float PI = 3.1415926535897932f;
+
+	const static float TWO_PI = 3.1415926535897932f*2.0f;
+#line 18 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+#line 1 "/Engine/Private/Definitions.usf"
+#line 19 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+
+
+float4 ModuloPrecise(float4 x, float4 y){ return x - y * trunc(x/y); }
+float3 ModuloPrecise(float3 x, float3 y){ return x - y * trunc(x/y); }
+float2 ModuloPrecise(float2 x, float2 y){ return x - y * trunc(x/y);}
+float ModuloPrecise(float x, float y){ return x - y * trunc(x/y); }
+int ModuloPrecise(int x, int y){ return x - y * (x/y); }
+int Modulo(int x, int y){ return x - y * (x/y); }
+
+
+
+float4 Reciprocal(float4 x){ return 1.0f/x;}
+float3 Reciprocal(float3 x){ return 1.0f/x; }
+float2 Reciprocal(float2 x){ return 1.0f/x;}
+float Reciprocal(float x){ return 1.0f/x; }
+
+
+
+bool NiagaraAll(bool b) { return b; }
+bool NiagaraAny(bool b) { return b; }
+
+
+
+
+
+
+
+
+
+bool NiagaraAll(bool2 b) { return b.x && b.y; }
+bool NiagaraAll(bool3 b) { return b.x && b.y && b.z; }
+bool NiagaraAll(bool4 b) { return b.x && b.y && b.z && b.w; }
+bool NiagaraAny(bool2 b) { return b.x || b.y; }
+bool NiagaraAny(bool3 b) { return b.x || b.y || b.z; }
+bool NiagaraAny(bool4 b) { return b.x || b.y || b.z || b.w; }
+#line 193 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+float4 rand4(int Seed1, int Seed2, int Seed3, int Seed4)
+{
+	int4 v = int4(Seed4, Seed1, Seed2, Seed3) * 1664525 + 1013904223;
+
+	v.x += v.y*v.w;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+	v.w += v.y*v.z;
+	v.x += v.y*v.w;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+	v.w += v.y*v.z;
+
+
+
+
+
+
+	return float4((v >> 8) & 0x00ffffff) / 16777216.0;
+
+}
+
+
+
+
+
+
+
+float3 rand3(int Seed1, int Seed2, int Seed3, int Seed4)
+{
+	int3 v = int3(Seed1, Seed2, Seed4 | (Seed3 << 16)) * 1664525 + 1013904223;
+
+	v.x += v.y*v.z;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+	v.x += v.y*v.z;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+
+	return float3((v >> 8) & 0x00ffffff) / 16777216.0;
+}
+
+
+static int RandomCounterDeterministic = 0;
+
+
+float rand(float x, int Seed1, int Seed2, int Seed3)
+{
+	RandomCounterDeterministic += 1;
+	return rand3(Seed1, Seed2, Seed3, RandomCounterDeterministic).x * x;
+}
+
+
+float2 rand(float2 x, int Seed1, int Seed2, int Seed3)
+{
+	RandomCounterDeterministic += 1;
+	return rand3(Seed1, Seed2, Seed3, RandomCounterDeterministic).xy * x;
+}
+
+
+float3 rand(float3 x, int Seed1, int Seed2, int Seed3)
+{
+	RandomCounterDeterministic += 1;
+	return rand3(Seed1, Seed2, Seed3, RandomCounterDeterministic).xyz * x;
+}
+
+
+float4 rand(float4 x, int Seed1, int Seed2, int Seed3)
+{
+	RandomCounterDeterministic += 1;
+	return rand4(Seed1, Seed2, Seed3, RandomCounterDeterministic).xyzw * x;
+}
+
+
+int rand(int x, int Seed1, int Seed2, int Seed3)
+{
+
+
+	RandomCounterDeterministic += 1;
+	return int(rand3(Seed1, Seed2, Seed3, RandomCounterDeterministic).x * (x+1));
+}
+#line 323 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+	float rand(float x);
+
+	float2 rand(float2 x)
+	{
+		return float2(rand(x.x), rand(x.y));
+	}
+
+	float3 rand(float3 x)
+	{
+		return float3(rand(x.x), rand(x.y), rand(x.z));
+	}
+
+	float4 rand(float4 x)
+	{
+		return float4(rand(x.x), rand(x.y), rand(x.z), rand(x.w));
+	}
+
+	int rand(int x);
+
+
+
+float rand_float(float x)
+{
+	return rand(x.x);
+}
+
+float2 rand_float(float2 x)
+{
+	return float2(rand_float(x.x), rand_float(x.y));
+}
+
+float3 rand_float(float3 x)
+{
+	return float3(rand_float(x.x), rand_float(x.y), rand_float(x.z));
+}
+
+float4 rand_float(float4 x)
+{
+	return float4(rand_float(x.x), rand_float(x.y), rand_float(x.z), rand_float(x.w));
+}
+
+int rand_int(int x)
+{
+
+
+
+	return rand_float(x.x);
+}
+
+
+float rand_float(float x, int Seed1, int Seed2, int Seed3)
+{
+	return rand(x.x, Seed1, Seed2, Seed3);
+}
+
+float2 rand_float(float2 x, int Seed1, int Seed2, int Seed3)
+{
+	return rand(x, Seed1, Seed2, Seed3);
+}
+
+float3 rand_float(float3 x, int Seed1, int Seed2, int Seed3)
+{
+	return rand(x, Seed1, Seed2, Seed3);
+}
+
+float4 rand_float(float4 x, int Seed1, int Seed2, int Seed3)
+{
+	return rand(x, Seed1, Seed2, Seed3);
+}
+
+int rand_int(int x, int Seed1, int Seed2, int Seed3)
+{
+
+
+	return rand(x.x-1, Seed1, Seed2, Seed3);
+}
+#line 405 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+	float noise(float x);
+	float noise(float2 x);
+	float noise(float3 x);
+
+
+
+	float4 Modulo(float4 x, float4 y);
+	float3 Modulo(float3 x, float3 y);
+	float2 Modulo(float2 x, float2 y);
+	float Modulo(float x, float y);
+
+
+	int ExecIndex();
+
+
+
+	int AcquireIndex(int DataSetID, bool DoAcquire);
+
+	void AcquireID(int DataSetID, out int IDIndex, out int IDAcquireTag);
+	void UpdateID(int DataSetID, int IDIndex, int InstanceIndex);
+
+	float InputDataFloat(int DataSetIndex, int RegisterIdx);
+	int InputDataInt(int DataSetIndex, int RegisterIdx);
+	bool InputDataBool(int DataSetIndex, int RegisterIdx);
+
+	float InputDataNoadvanceFloat(int DataSetIndex, int RegisterIdx);
+	int InputDataNoadvanceInt(int DataSetIndex, int RegisterIdx);
+	bool InputDataNoadvanceBool(int DataSetIndex, int RegisterIdx);
+
+	void OutputDataFloat(int DataSetIndex, int RegisterIndex, int InstanceIndex, float Value);
+	void OutputDataInt(int DataSetIndex, int RegisterIndex, int InstanceIndex, int Value);
+	void OutputDataBool(int DataSetIndex, int RegisterIndex, int InstanceIndex, bool Value);
+#line 683 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+	int OutputIndex(const int DataSetID, const bool bStageKillsParticles, const bool bIsValid)
+	{
+#line 698 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+			return AcquireIndex(DataSetID, bIsValid);
+	}
+#line 702 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+#line 1 "/Engine/Generated/NiagaraEmitterInstance.ush"
+
+
+
+
+struct NiagaraRandInfo
+{
+	int Seed1;
+	int Seed2;
+	int Seed3;
+};
+
+struct NiagaraID
+{
+	int Index;
+	int AcquireTag;
+};
+
+cbuffer FNiagaraGlobalParameters
+{
+	float Engine_DeltaTime;
+	float Engine_InverseDeltaTime;
+	float Engine_Time;
+	float Engine_RealTime;
+}
+
+cbuffer FNiagaraSystemParameters
+{
+	float Engine_Owner_TimeSinceRendered;
+	float Engine_Owner_LODDistance;
+	float Engine_Owner_LODDistanceFraction;
+	float Engine_System_Age;
+	int Engine_Owner_ExecutionState;
+	int Engine_System_TickCount;
+	int Engine_System_NumEmitters;
+	int Engine_System_NumEmittersAlive;
+}
+
+cbuffer FNiagaraOwnerParameters
+{
+	float4x4 Engine_Owner_SystemLocalToWorld;
+	float4x4 Engine_Owner_SystemWorldToLocal;
+	float4x4 Engine_Owner_SystemLocalToWorldTransposed;
+	float4x4 Engine_Owner_SystemWorldToLocalTransposed;
+	float4x4 Engine_Owner_SystemLocalToWorldNoScale;
+	float4x4 Engine_Owner_SystemWorldToLocalNoScale;
+	float4 Engine_Owner_Rotation;
+	float4 Engine_Owner_Position;
+	float4 Engine_Owner_Velocity;
+	float4 Engine_Owner_SystemXAxis;
+	float4 Engine_Owner_SystemYAxis;
+	float4 Engine_Owner_SystemZAxis;
+	float4 Engine_Owner_Scale;
+}
+
+cbuffer FNiagaraEmitterParameters
+{
+	int Engine_Emitter_NumParticles;
+	int Engine_Emitter_TotalSpawnedParticles;
+	float Engine_Emitter_SpawnCountScale;
+	float Emitter_Age;
+	int Emitter_RandomSeed;
+	int Engine_Emitter_PaddingInt32_0;
+	int Engine_Emitter_PaddingInt32_1;
+	int Engine_Emitter_PaddingInt32_2;
+}
+
+cbuffer FNiagaraExternalParameters
+{
+	float Constants_Emitter_InitializeParticle_Lifetime;
+	float4 Constants_Emitter_InitializeParticle_Color;
+	float Constants_Emitter_InitializeParticle_Mass;
+	float2 Constants_Emitter_InitializeParticle_SpriteSize;
+	float Constants_Emitter_InitializeParticle_SpriteRotation;
+	float3 Constants_Emitter_InitializeParticle_MeshScale;
+	float3 Constants_Emitter_InitialMeshOrientation_Rotation;
+	float3 Constants_Emitter_InitialMeshOrientation_OrientationVector;
+	float3 Constants_Emitter_InitialMeshOrientation_OrientationAxis;
+	float Constants_Emitter_SolveForcesAndVelocity_SpeedLimit;
+	float Constants_Emitter_SolveForcesAndVelocity_AccelerationLimit;
+	float Constants_Emitter_Collision_ParticleRadiusScale;
+	float Constants_Emitter_Collision_Friction;
+	float Constants_Emitter_Collision_StaticFriction;
+	float Constants_Emitter_Collision_StaticFrictionEngagementSpeed;
+	float Constants_Emitter_Collision_Restitution;
+	float Constants_Emitter_Collision_RandomizeCollisionNormal;
+	float Constants_Emitter_Collision_FrictionDuringaBounce;
+	float Constants_Emitter_Collision_CPUTraceVectorLengthMultiplier;
+	float Constants_Emitter_Collision_MaxCPUTraceLength;
+	float Constants_Emitter_Collision_PercentageofPenetrationBeforeRest;
+	float Constants_Emitter_Collision_RestStateTimeRange;
+	float Constants_Emitter_Collision_MaximumPenetrationCorrectionDistance;
+	float3 Constants_Emitter_Collision_ValidCollisionPlaneNormalForRest;
+	float Constants_Emitter_Collision_MinimumCollisionNormalASC47RestNormalAlignmentPercentage;
+	float Constants_Emitter_Collision_AdvancedAgingRate;
+	int Engine_ExecutionCount;
+	float Emitter_SpawnRate;
+	float Emitter_SpawnInterval;
+	float Emitter_InterpSpawnStartDt;
+	int Emitter_SpawnGroup;
+}
+
+cbuffer PREV_FNiagaraGlobalParameters
+{
+	float PREV_Engine_DeltaTime;
+	float PREV_Engine_InverseDeltaTime;
+	float PREV_Engine_Time;
+	float PREV_Engine_RealTime;
+}
+
+cbuffer PREV_FNiagaraSystemParameters
+{
+	float PREV_Engine_Owner_TimeSinceRendered;
+	float PREV_Engine_Owner_LODDistance;
+	float PREV_Engine_Owner_LODDistanceFraction;
+	float PREV_Engine_System_Age;
+	int PREV_Engine_Owner_ExecutionState;
+	int PREV_Engine_System_TickCount;
+	int PREV_Engine_System_NumEmitters;
+	int PREV_Engine_System_NumEmittersAlive;
+}
+
+cbuffer PREV_FNiagaraOwnerParameters
+{
+	float4x4 PREV_Engine_Owner_SystemLocalToWorld;
+	float4x4 PREV_Engine_Owner_SystemWorldToLocal;
+	float4x4 PREV_Engine_Owner_SystemLocalToWorldTransposed;
+	float4x4 PREV_Engine_Owner_SystemWorldToLocalTransposed;
+	float4x4 PREV_Engine_Owner_SystemLocalToWorldNoScale;
+	float4x4 PREV_Engine_Owner_SystemWorldToLocalNoScale;
+	float4 PREV_Engine_Owner_Rotation;
+	float4 PREV_Engine_Owner_Position;
+	float4 PREV_Engine_Owner_Velocity;
+	float4 PREV_Engine_Owner_SystemXAxis;
+	float4 PREV_Engine_Owner_SystemYAxis;
+	float4 PREV_Engine_Owner_SystemZAxis;
+	float4 PREV_Engine_Owner_Scale;
+}
+
+cbuffer PREV_FNiagaraEmitterParameters
+{
+	int PREV_Engine_Emitter_NumParticles;
+	int PREV_Engine_Emitter_TotalSpawnedParticles;
+	float PREV_Engine_Emitter_SpawnCountScale;
+	float PREV_Emitter_Age;
+	int PREV_Emitter_RandomSeed;
+	int PREV_Engine_Emitter_PaddingInt32_0;
+	int PREV_Engine_Emitter_PaddingInt32_1;
+	int PREV_Engine_Emitter_PaddingInt32_2;
+}
+
+cbuffer PREV_FNiagaraExternalParameters
+{
+	float PREV_Constants_Emitter_InitializeParticle_Lifetime;
+	float4 PREV_Constants_Emitter_InitializeParticle_Color;
+	float PREV_Constants_Emitter_InitializeParticle_Mass;
+	float2 PREV_Constants_Emitter_InitializeParticle_SpriteSize;
+	float PREV_Constants_Emitter_InitializeParticle_SpriteRotation;
+	float3 PREV_Constants_Emitter_InitializeParticle_MeshScale;
+	float3 PREV_Constants_Emitter_InitialMeshOrientation_Rotation;
+	float3 PREV_Constants_Emitter_InitialMeshOrientation_OrientationVector;
+	float3 PREV_Constants_Emitter_InitialMeshOrientation_OrientationAxis;
+	float PREV_Constants_Emitter_SolveForcesAndVelocity_SpeedLimit;
+	float PREV_Constants_Emitter_SolveForcesAndVelocity_AccelerationLimit;
+	float PREV_Constants_Emitter_Collision_ParticleRadiusScale;
+	float PREV_Constants_Emitter_Collision_Friction;
+	float PREV_Constants_Emitter_Collision_StaticFriction;
+	float PREV_Constants_Emitter_Collision_StaticFrictionEngagementSpeed;
+	float PREV_Constants_Emitter_Collision_Restitution;
+	float PREV_Constants_Emitter_Collision_RandomizeCollisionNormal;
+	float PREV_Constants_Emitter_Collision_FrictionDuringaBounce;
+	float PREV_Constants_Emitter_Collision_CPUTraceVectorLengthMultiplier;
+	float PREV_Constants_Emitter_Collision_MaxCPUTraceLength;
+	float PREV_Constants_Emitter_Collision_PercentageofPenetrationBeforeRest;
+	float PREV_Constants_Emitter_Collision_RestStateTimeRange;
+	float PREV_Constants_Emitter_Collision_MaximumPenetrationCorrectionDistance;
+	float3 PREV_Constants_Emitter_Collision_ValidCollisionPlaneNormalForRest;
+	float PREV_Constants_Emitter_Collision_MinimumCollisionNormalASC47RestNormalAlignmentPercentage;
+	float PREV_Constants_Emitter_Collision_AdvancedAgingRate;
+	int PREV_Engine_ExecutionCount;
+	float PREV_Emitter_SpawnRate;
+	float PREV_Emitter_SpawnInterval;
+	float PREV_Emitter_InterpSpawnStartDt;
+	int PREV_Emitter_SpawnGroup;
+}
+
+struct FParamMap0_Transient
+{
+	float CollisionDistanceToCollision;
+	float CollisionFriction;
+	bool CollisionIsResting;
+	float3 CollisionNormal;
+	float3 CollisionParticleRelativeCollisionLocation;
+	float3 CollisionParticleWorldPosition;
+	float CollisionRestitution;
+	float CollisionSize;
+	bool CollisionValid;
+	float3 CollisionVelocity;
+	float3 CollisionWorldPosition;
+	float PhysicsDeltaTime;
+	float PhysicsDrag;
+	float3 PhysicsForce;
+};
+
+struct FParamMap0_SolveForcesAndVelocity
+{
+	float AccelerationLimit;
+	float DeltaTime;
+	float3 Force;
+	float Mass;
+	float3 Position;
+	float3 PreviousVelocity;
+	float SpeedLimit;
+	float3 Velocity;
+	bool WritetoIntrinsicProperties;
+};
+
+struct FParamMap0_ParticleState
+{
+	float DeltaTime;
+	float Lifetime;
+};
+
+struct FParamMap0_Particles_Collision_CollisionQueryAndResponse001
+{
+	int CollisionID;
+};
+
+struct FParamMap0_Particles_Collision_CollisionQueryAndResponse
+{
+	int CollisionID;
+};
+
+struct FParamMap0_Particles_Collision
+{
+	FParamMap0_Particles_Collision_CollisionQueryAndResponse CollisionQueryAndResponse;
+	FParamMap0_Particles_Collision_CollisionQueryAndResponse001 CollisionQueryAndResponse001;
+};
+
+struct FParamMap0_Particles
+{
+	float Age;
+	FParamMap0_Particles_Collision Collision;
+	float4 Color;
+	bool HasCollided;
+	float4 InitialRotation;
+	float Lifetime;
+	float Mass;
+	float MaterialRandom;
+	float4 MeshOrientation;
+	float NormalizedAge;
+	int NumberOfCollisions;
+	float3 Position;
+	float3 PreviousVelocity;
+	float RestCounter;
+	float3 Scale;
+	float SpriteRotation;
+	float2 SpriteSize;
+	int UniqueID;
+	float3 Velocity;
+};
+
+struct FParamMap0_OUTPUT_VAR_SolveForcesAndVelocity
+{
+	float IncomingPhysicsDrag;
+	float3 IncomingPhysicsForce;
+	float3 Position;
+	float3 Velocity;
+};
+
+struct FParamMap0_OUTPUT_VAR_ParticleState
+{
+	bool FirstFrame;
+};
+
+struct FParamMap0_OUTPUT_VAR_Collision_CollisionQueryAndResponse001
+{
+	float CollisionPenetrationDistance;
+	bool DepthBasedCollisionParticleOccluded;
+	bool ParticleOnScreen;
+	bool PhysicsCollidesThisFrame;
+};
+
+struct FParamMap0_OUTPUT_VAR_Collision_CollisionQueryAndResponse
+{
+	float CollisionPenetrationDistance;
+	bool DepthBasedCollisionParticleOccluded;
+	bool ParticleOnScreen;
+	bool PhysicsCollidesThisFrame;
+};
+
+struct FParamMap0_OUTPUT_VAR_Collision
+{
+	FParamMap0_OUTPUT_VAR_Collision_CollisionQueryAndResponse CollisionQueryAndResponse;
+	FParamMap0_OUTPUT_VAR_Collision_CollisionQueryAndResponse001 CollisionQueryAndResponse001;
+	bool CollisionValid;
+	float3 ModuleCollision1Normal;
+	bool ModuleCollision1Valid;
+	float3 ModuleCollision2Normal;
+	bool ModuleCollision2Valid;
+	float3 ModuleCombinedCollisionNormal;
+	float3 TempPreviousForce;
+	float3 TempPreviousPosition;
+	float3 TempPreviousVelocity;
+};
+
+struct FParamMap0_OUTPUT_VAR
+{
+	FParamMap0_OUTPUT_VAR_Collision Collision;
+	FParamMap0_OUTPUT_VAR_ParticleState ParticleState;
+	FParamMap0_OUTPUT_VAR_SolveForcesAndVelocity SolveForcesAndVelocity;
+};
+
+struct FParamMap0_Local_SolveForcesAndVelocity
+{
+	float DeltaTime;
+	float Mass;
+	float3 PhysicsForce;
+};
+
+struct FParamMap0_Local_InitialMeshOrientation
+{
+	bool Temp;
+};
+
+struct FParamMap0_Local_Collision_CollisionQueryAndResponse001
+{
+	float3 ModuleAttemptedMovementThisUpdate;
+	float3 ModuleForceContribution;
+	float3 ModuleFrictionForceVectorInNewtons;
+	float3 ModuleFrictionForceVelocityVector;
+	bool ModuleInitialDataInstanceAlive;
+	float3 ModuleInitialForceDividedByMass;
+	float ModuleNormalForceInNewtons;
+	float ModulePercentageOfTickDedicatedToUpdatingPosition;
+	float ModulePhysicsDeltaTime;
+	float3 ModulePlaneNormal;
+	float3 ModulePlanePivotPoint;
+	float3 ModuleReflectedVelocity;
+	float3 ModuleReflectedVelocityWithFrictionApplied;
+	bool ModuleRemoveRestitution;
+	float3 ModuleReturnedCollisionNormal;
+	bool ModuleReturnedCollisionValidBool;
+	float3 ModuleReturnedCollisionWorldPosition;
+	float ModuleReturnedFriction;
+	float ModuleReturnedRestitution;
+	float ModuleTickDeltaForThisCollisionUpdate;
+	float3 ModuleTraceDirection;
+	float3 ModuleTraceOrigin;
+	float3 ModuleTraceVector;
+	float3 ModuleTraceWorldEnd;
+	float3 ModuleTraceWorldStart;
+};
+
+struct FParamMap0_Local_Collision_CollisionQueryAndResponse
+{
+	float3 ModuleAttemptedMovementThisUpdate;
+	float3 ModuleForceContribution;
+	float3 ModuleFrictionForceVectorInNewtons;
+	float3 ModuleFrictionForceVelocityVector;
+	bool ModuleInitialDataInstanceAlive;
+	float3 ModuleInitialForceDividedByMass;
+	float ModuleNormalForceInNewtons;
+	float ModulePercentageOfTickDedicatedToUpdatingPosition;
+	float ModulePhysicsDeltaTime;
+	float3 ModulePlaneNormal;
+	float3 ModulePlanePivotPoint;
+	float3 ModuleReflectedVelocity;
+	float3 ModuleReflectedVelocityWithFrictionApplied;
+	bool ModuleRemoveRestitution;
+	float3 ModuleReturnedCollisionNormal;
+	bool ModuleReturnedCollisionValidBool;
+	float3 ModuleReturnedCollisionWorldPosition;
+	float ModuleReturnedFriction;
+	float ModuleReturnedRestitution;
+	float ModuleTickDeltaForThisCollisionUpdate;
+	float3 ModuleTraceDirection;
+	float3 ModuleTraceOrigin;
+	float3 ModuleTraceVector;
+	float3 ModuleTraceWorldEnd;
+	float3 ModuleTraceWorldStart;
+};
+
+struct FParamMap0_Local_Collision
+{
+	FParamMap0_Local_Collision_CollisionQueryAndResponse CollisionQueryAndResponse;
+	FParamMap0_Local_Collision_CollisionQueryAndResponse001 CollisionQueryAndResponse001;
+	float ModuleParticleRadius;
+	bool UpdateMeshRotation;
+};
+
+struct FParamMap0_Local
+{
+	FParamMap0_Local_Collision Collision;
+	FParamMap0_Local_InitialMeshOrientation InitialMeshOrientation;
+	FParamMap0_Local_SolveForcesAndVelocity SolveForcesAndVelocity;
+};
+
+struct FParamMap0_Interpolation
+{
+	float Emitter_InterpSpawnStartDt;
+	int Emitter_SpawnGroup;
+	float Emitter_SpawnInterval;
+	int InterpSpawn_Index;
+	float InterpSpawn_InvSpawnTime;
+	float InterpSpawn_InvUpdateTime;
+	float InterpSpawn_SpawnTime;
+	float InterpSpawn_UpdateTime;
+	float SpawnInterp;
+};
+
+struct FParamMap0_InitialMeshOrientation
+{
+	float3 OrientationAxis;
+	int OrientationCoordinateSpace;
+	float3 OrientationVector;
+	float3 Rotation;
+};
+
+struct FParamMap0_InitializeParticle
+{
+	float4 Color;
+	float Lifetime;
+	float Mass;
+	float MaterialRandom;
+	float3 MeshScale;
+	float3 Position;
+	float SpriteRotation;
+	float2 SpriteSize;
+	bool WriteColor;
+	bool WriteLifetime;
+	bool WriteMass;
+	bool WriteMaterialRandom;
+	bool WritePosition;
+	bool WriteScale;
+	bool WriteSpriteRotation;
+	bool WriteSpriteSize;
+};
+
+struct FParamMap0_Engine_System
+{
+	float Age;
+	int NumEmitters;
+	int NumEmittersAlive;
+	int TickCount;
+};
+
+struct FParamMap0_Engine_Owner
+{
+	int ExecutionState;
+	float LODDistance;
+	float LODDistanceFraction;
+	float3 Position;
+	float4 Rotation;
+	float3 Scale;
+	float4x4 SystemLocalToWorld;
+	float4x4 SystemLocalToWorldNoScale;
+	float4x4 SystemLocalToWorldTransposed;
+	float4x4 SystemWorldToLocal;
+	float4x4 SystemWorldToLocalNoScale;
+	float4x4 SystemWorldToLocalTransposed;
+	float3 SystemXAxis;
+	float3 SystemYAxis;
+	float3 SystemZAxis;
+	float TimeSinceRendered;
+	float3 Velocity;
+};
+
+struct FParamMap0_Engine_Emitter
+{
+	int NumParticles;
+	int PaddingInt32_0;
+	int PaddingInt32_1;
+	int PaddingInt32_2;
+	float SpawnCountScale;
+	int TotalSpawnedParticles;
+};
+
+struct FParamMap0_Engine
+{
+	float DeltaTime;
+	FParamMap0_Engine_Emitter Emitter;
+	int ExecutionCount;
+	float InverseDeltaTime;
+	FParamMap0_Engine_Owner Owner;
+	float RealTime;
+	FParamMap0_Engine_System System;
+	float Time;
+};
+
+struct FParamMap0_Emitter
+{
+	float Age;
+	float InterpSpawnStartDt;
+	bool LocalSpace;
+	int RandomSeed;
+	int SpawnGroup;
+	float SpawnInterval;
+	float SpawnRate;
+};
+
+struct FParamMap0_DataInstance
+{
+	bool Alive;
+};
+
+struct FParamMap0_Constants_Emitter_SolveForcesAndVelocity
+{
+	float AccelerationLimit;
+	float SpeedLimit;
+};
+
+struct FParamMap0_Constants_Emitter_InitialMeshOrientation
+{
+	float3 OrientationAxis;
+	float3 OrientationVector;
+	float3 Rotation;
+};
+
+struct FParamMap0_Constants_Emitter_InitializeParticle
+{
+	float4 Color;
+	float Lifetime;
+	float Mass;
+	float3 MeshScale;
+	float SpriteRotation;
+	float2 SpriteSize;
+};
+
+struct FParamMap0_Constants_Emitter_Collision
+{
+	float AdvancedAgingRate;
+	float CPUTraceVectorLengthMultiplier;
+	float Friction;
+	float FrictionDuringaBounce;
+	float MaxCPUTraceLength;
+	float MaximumPenetrationCorrectionDistance;
+	float MinimumCollisionNormalASC47RestNormalAlignmentPercentage;
+	float ParticleRadiusScale;
+	float PercentageofPenetrationBeforeRest;
+	float RandomizeCollisionNormal;
+	float Restitution;
+	float RestStateTimeRange;
+	float StaticFriction;
+	float StaticFrictionEngagementSpeed;
+	float3 ValidCollisionPlaneNormalForRest;
+};
+
+struct FParamMap0_Constants_Emitter
+{
+	FParamMap0_Constants_Emitter_Collision Collision;
+	FParamMap0_Constants_Emitter_InitializeParticle InitializeParticle;
+	FParamMap0_Constants_Emitter_InitialMeshOrientation InitialMeshOrientation;
+	FParamMap0_Constants_Emitter_SolveForcesAndVelocity SolveForcesAndVelocity;
+};
+
+struct FParamMap0_Constants
+{
+	FParamMap0_Constants_Emitter Emitter;
+};
+
+struct FParamMap0_Collision_CollisionQueryAndResponse001
+{
+	float BounceCollisionFriction;
+	bool CollisionEnabled;
+	float CollisionNormalRandomizationPercentage;
+	int CPUFrictionMergeType;
+	float DeltaTime;
+	float DynamicFrictionCoefficient;
+	float MaxIntersectionCorrectionDistance;
+	float MaxTraceLength;
+	float ParticleRadius;
+	float ParticleRestitutionCoeffiecient;
+	bool RandomizeCollisionNormal;
+	float StaticFrictionCoefficient;
+	float StaticFrictionEngagementSpeed;
+	float TraceVectorLengthMultiplier;
+	bool UpdateRotationalVelocity;
+};
+
+struct FParamMap0_Collision_CollisionQueryAndResponse
+{
+	float BounceCollisionFriction;
+	bool CollisionEnabled;
+	float CollisionNormalRandomizationPercentage;
+	int CPUFrictionMergeType;
+	float DeltaTime;
+	float DynamicFrictionCoefficient;
+	float MaxIntersectionCorrectionDistance;
+	float MaxTraceLength;
+	float ParticleRadius;
+	float ParticleRestitutionCoeffiecient;
+	bool RandomizeCollisionNormal;
+	float StaticFrictionCoefficient;
+	float StaticFrictionEngagementSpeed;
+	float TraceVectorLengthMultiplier;
+	bool UpdateRotationalVelocity;
+};
+
+struct FParamMap0_Collision
+{
+	float AdvancedAgingRate;
+	bool CollisionEnabled;
+	FParamMap0_Collision_CollisionQueryAndResponse CollisionQueryAndResponse;
+	FParamMap0_Collision_CollisionQueryAndResponse001 CollisionQueryAndResponse001;
+	bool ControlRestStateViaSurfaceNormal;
+	bool CorrectInterpenetration;
+	float CPUTraceVectorLengthMultiplier;
+	bool EnableRestState;
+	float Friction;
+	float FrictionDuringaBounce;
+	float MaxCPUTraceLength;
+	float MaximumPenetrationCorrectionDistance;
+	float MinimumCollisionNormalASC47RestNormalAlignmentPercentage;
+	float ParticleRadiusScale;
+	float PercentageofPenetrationBeforeRest;
+	float RandomizeCollisionNormal;
+	bool RandomizeCollisionNormalVector;
+	float Restitution;
+	float RestStateTimeRange;
+	float StaticFriction;
+	float StaticFrictionEngagementSpeed;
+	float3 ValidCollisionPlaneNormalForRest;
+};
+
+struct FParamMap0
+{
+	FParamMap0_Collision Collision;
+	FParamMap0_Constants Constants;
+	FParamMap0_DataInstance DataInstance;
+	FParamMap0_Emitter Emitter;
+	FParamMap0_Engine Engine;
+	FParamMap0_InitializeParticle InitializeParticle;
+	FParamMap0_InitialMeshOrientation InitialMeshOrientation;
+	FParamMap0_Interpolation Interpolation;
+	FParamMap0_Local Local;
+	FParamMap0_OUTPUT_VAR OUTPUT_VAR;
+	FParamMap0_Particles Particles;
+	FParamMap0_ParticleState ParticleState;
+	FParamMap0_SolveForcesAndVelocity SolveForcesAndVelocity;
+	FParamMap0_Transient Transient;
+};
+
+struct FSimulationContext
+{
+	FParamMap0 MapSpawn;
+	FParamMap0 MapUpdate;
+};
+
+static float HackSpawnInterp = 1.0;
+void ParticleOwnerPosition_Emitter_Func_(out float3 Out_OutPosition, inout FSimulationContext Context);
+void InitializeParticle_SimulationPosition_Emitter_Func_(out float3 Out_OutPosition, inout FSimulationContext Context);
+void GetRandomInfo_Emitter_Determinism_false_Func_(int In_Seed, int In_Engine_System_TickCount, bool In_OverrideSeed, int In_Particles_UniqueID, int In_Emitter_RandomSeed, bool In_FixedOverrideSeed, int In_RandomnessMode, out NiagaraRandInfo Out_RandomInfo, out bool Out_UseDeterministicRandoms, inout FSimulationContext Context);
+void RandomRangeFloat_Func_(float In_Min, float In_Max, int In_Seed, int In_RandomnessMode, bool In_OverrideSeed, out float Out_Result, inout FSimulationContext Context);
+void InitializeParticle_Emitter_Func_(inout FSimulationContext Context);
+void DirectionAndLengthSafe_Func_(float3 In_V, float3 In_Fallback, float In_Threshold, float In_FallbackLength, out float3 Out_Direction, out float Out_Length, out bool Out_BelowThreshold, inout FSimulationContext Context);
+void TransformBase_Func_(int In_SourceSpace, int In_DestinationSpace, float4x4 In_LocalToWorldTransform, float4x4 In_WorldToLocalTransform, bool In_bLocalSpace, out bool Out_bUseOriginal, out float4x4 Out_OutTransform, inout FSimulationContext Context);
+void InitialMeshOrientation_TransformVector_Emitter_Func_(float3 In_InVector, int In_SourceSpace, int In_DestinationSpace, bool In_ApplyScale, out float3 Out_OutVector, inout FSimulationContext Context);
+void CustomHlsl5A25A2A4455E3C692D3322A954DF887F_Func_(bool In_InputsAreNormalized, float3 In_From, float3 In_To, out float4 Out_Result);
+void FindQuatBetween_Func_(float3 In_From, float3 In_To, bool In_InputsAreNormalized, out float4 Out_NewOutput, inout FSimulationContext Context);
+void CustomHlsl001624D816540ECD5F976902A85E139007C_Func_(float4 In_Quat1, float4 In_Quat2, out float4 Out_Result);
+void MultiplyQuaternion_Func_(float4 In_QuaternionA, float4 In_QuaternionB, out float4 Out_Quaternion, inout FSimulationContext Context);
+void InitialMeshOrientation_Emitter_Func_(inout FSimulationContext Context);
+void ParticleState_Emitter_Func_(inout FSimulationContext Context);
+void SolveForcesAndVelocity_Emitter_Func_(inout FSimulationContext Context);
+void CalculateRadiusFromSpriteSize_Method_NewEnumerator0_Func_(float2 In_SpriteSize, out float Out_Radius, inout FSimulationContext Context);
+void Collision_TransformPosition_Emitter_Func_(float3 In_InPosition, int In_SourceSpace, int In_DestinationSpace, bool In_ApplyScale, out float3 Out_OutPosition, inout FSimulationContext Context);
+void Collision_TransformVector002_Emitter_Func_(float3 In_InVector, int In_SourceSpace, int In_DestinationSpace, bool In_ApplyScale, out float3 Out_OutVector, inout FSimulationContext Context);
+void Collision_TransformVector003_Emitter_Func_(float3 In_InVector, int In_SourceSpace, int In_DestinationSpace, bool In_ApplyScale, out float3 Out_OutVector, inout FSimulationContext Context);
+void PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQuery(int In_InstanceData, int In_PreviousFrameQueryID, float3 In_TraceStartWorld, float3 In_TraceEndWorld, int In_TraceChannel, out int Out_NextFrameQueryID, out bool Out_CollisionValid, out bool Out_IsTraceInsideMesh, out float3 Out_CollisionPosWorld, out float3 Out_CollisionNormal, out float Out_CollisionMaterialFriction, out float Out_CollisionMaterialRestitution);
+void PlaneSphereCollisionDetection_Func_(float3 In_PlaneNormal, float3 In_PlanePivotPoint, float3 In_InitialSphereLocation, float3 In_SpherePositionDelta, float In_CollisionRadius, float In_PhysicsDeltaTime, float In_MaxCorrectiondistance, out bool Out_Collides, out float3 Out_IntersectionLocation, out float3 Out_PreASC45IntersectionSphereCenterLocation, out float3 Out_InitialPositionRelativeCollisionLocation, out float Out_TimeElapsedToCollision, out float Out_RemainingTimePostCollision, out float Out_PercentageofTimeUsedToPerformCollision, out float Out_InitialDistanceBetweenTheSphereASC39sSurfaceandtheCollision, out float Out_UninterruptedAnimatedSphereASC39sDistancetoCollisionPlane, inout FSimulationContext Context);
+void RandomRangeFloat_Func_(float2 In_Min, float2 In_Max, int In_Seed, int In_RandomnessMode, bool In_OverrideSeed, out float2 Out_Result, inout FSimulationContext Context);
+void MultiplyVectorWithQuaternion_Func_(float3 In_VECTOR_VAR, float4 In_Quaternion, out float3 Out_Vector, inout FSimulationContext Context);
+void RandomizeCollisionNormals_Func_(float3 In_ConeAxis, float In_Scale, float In_Spread, out float3 Out_Ouput, inout FSimulationContext Context);
+void ReflectVector_Func_(float3 In_InVector, float3 In_Normal, out float3 Out_Reflected, inout FSimulationContext Context);
+void CentimeterMeterConversion_Func_(float3 In_INPUT_VAR, out float3 Out_CentimeterstoMeters, out float3 Out_MeterstoCentimeters, inout FSimulationContext Context);
+void ProjectVectorOnPlane_Func_(float3 In_VECTOR_VAR, float3 In_Normal, out float3 Out_Ouput, inout FSimulationContext Context);
+void Collision_CollisionQueryAndResponse_Emitter_Func_(inout FSimulationContext Context);
+void PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001Query(int In_InstanceData, int In_PreviousFrameQueryID, float3 In_TraceStartWorld, float3 In_TraceEndWorld, int In_TraceChannel, out int Out_NextFrameQueryID, out bool Out_CollisionValid, out bool Out_IsTraceInsideMesh, out float3 Out_CollisionPosWorld, out float3 Out_CollisionNormal, out float Out_CollisionMaterialFriction, out float Out_CollisionMaterialRestitution);
+void Collision_CollisionQueryAndResponse001_Emitter_Func_(inout FSimulationContext Context);
+void Collision_TransformPosition001_Emitter_Func_(float3 In_InPosition, int In_SourceSpace, int In_DestinationSpace, bool In_ApplyScale, out float3 Out_OutPosition, inout FSimulationContext Context);
+void Collision_TransformVector001_Emitter_Func_(float3 In_InVector, int In_SourceSpace, int In_DestinationSpace, bool In_ApplyScale, out float3 Out_OutVector, inout FSimulationContext Context);
+void Collision_TransformVector_Emitter_Func_(float3 In_InVector, int In_SourceSpace, int In_DestinationSpace, bool In_ApplyScale, out float3 Out_OutVector, inout FSimulationContext Context);
+void Collision_Emitter_Func_(inout FSimulationContext Context);
+float GetSpawnInterpolation();
+void ParticleOwnerPosition_Emitter_Func_(out float3 Out_OutPosition, inout FSimulationContext Context)
+{
+	bool Constant21 = true;
+	float3 Constant22 = float3(0,0,0);
+	float3 Vector_IfResult;
+	if(Constant21)
+	{
+	Vector_IfResult = Constant22;
+	}
+	else
+	{
+	Vector_IfResult = Context.MapSpawn.Engine.Owner.Position;
+	}
+	Out_OutPosition = Vector_IfResult;
+}
+
+void InitializeParticle_SimulationPosition_Emitter_Func_(out float3 Out_OutPosition, inout FSimulationContext Context)
+{
+	bool Constant27 = true;
+	float3 Constant28 = float3(0,0,0);
+	float3 Vector_IfResult1;
+	if(Constant27)
+	{
+	Vector_IfResult1 = Constant28;
+	}
+	else
+	{
+	Vector_IfResult1 = Context.MapSpawn.Engine.Owner.Position;
+	}
+	Out_OutPosition = Vector_IfResult1;
+}
+
+void GetRandomInfo_Emitter_Determinism_false_Func_(int In_Seed, int In_Engine_System_TickCount, bool In_OverrideSeed, int In_Particles_UniqueID, int In_Emitter_RandomSeed, bool In_FixedOverrideSeed, int In_RandomnessMode, out NiagaraRandInfo Out_RandomInfo, out bool Out_UseDeterministicRandoms, inout FSimulationContext Context)
+{
+	bool Constant40 = false;
+	int Constant41 = 0;
+	bool Result = NiagaraAll(In_RandomnessMode == Constant41);
+	bool Result1 = Constant40 && Result;
+	int Constant42 = 1;
+	bool Result2 = NiagaraAll(In_RandomnessMode == Constant42);
+	bool Result3 = Result1 || Result2;
+	int Seed_IfResult;
+	if(In_OverrideSeed)
+	{
+	Seed_IfResult = In_Seed;
+	}
+	else
+	{
+	Seed_IfResult = Context.MapSpawn.Emitter.RandomSeed;
+	}
+	int Constant43 = 0;
+	int Constant44 = 0;
+	int Seed1_IfResult;
+	int Seed2_IfResult;
+	int Seed3_IfResult;
+	if(In_FixedOverrideSeed)
+	{
+	Seed1_IfResult = Seed_IfResult;
+	Seed2_IfResult = Constant43;
+	Seed3_IfResult = Constant44;
+	}
+	else
+	{
+	Seed1_IfResult = Context.MapSpawn.Particles.UniqueID;
+	Seed2_IfResult = Context.MapSpawn.Engine.System.TickCount;
+	Seed3_IfResult = Seed_IfResult;
+	}
+	int Constant45 = -1;
+	int Constant46 = -1;
+	int Constant47 = -1;
+	int Seed1_IfResult1;
+	int Seed2_IfResult1;
+	int Seed3_IfResult1;
+	if(Result3)
+	{
+	Seed1_IfResult1 = Seed1_IfResult;
+	Seed2_IfResult1 = Seed2_IfResult;
+	Seed3_IfResult1 = Seed3_IfResult;
+	}
+	else
+	{
+	Seed1_IfResult1 = Constant45;
+	Seed2_IfResult1 = Constant46;
+	Seed3_IfResult1 = Constant47;
+	}
+	NiagaraRandInfo Output1;
+	Output1.Seed1 = Seed1_IfResult1;
+	Output1.Seed2 = Seed2_IfResult1;
+	Output1.Seed3 = Seed3_IfResult1;
+	Out_RandomInfo = Output1;
+	Out_UseDeterministicRandoms = Result3;
+}
+
+void RandomRangeFloat_Func_(float In_Min, float In_Max, int In_Seed, int In_RandomnessMode, bool In_OverrideSeed, out float Out_Result, inout FSimulationContext Context)
+{
+	int Constant35 = (0);
+	bool Constant36 = false;
+	int Constant37 = 0;
+	int Constant38 = (0);
+	bool Constant39 = false;
+	NiagaraRandInfo GetRandomInfo_Emitter_Determinism_false_Func_Output_RandomInfo;
+	bool GetRandomInfo_Emitter_Determinism_false_Func_Output_UseDeterministicRandoms;
+	GetRandomInfo_Emitter_Determinism_false_Func_(In_Seed, Constant35, In_OverrideSeed, Constant37, Constant38, Constant39, In_RandomnessMode, GetRandomInfo_Emitter_Determinism_false_Func_Output_RandomInfo, GetRandomInfo_Emitter_Determinism_false_Func_Output_UseDeterministicRandoms, Context);
+	float Result4 = In_Max - In_Min;
+	int Seed1;
+	int Seed2;
+	int Seed3;
+	Seed1 = GetRandomInfo_Emitter_Determinism_false_Func_Output_RandomInfo.Seed1;
+	Seed2 = GetRandomInfo_Emitter_Determinism_false_Func_Output_RandomInfo.Seed2;
+	Seed3 = GetRandomInfo_Emitter_Determinism_false_Func_Output_RandomInfo.Seed3;
+	float Result5 = rand_float(Result4, Seed1, Seed2, Seed3);
+	float Result6 = rand_float(Result4);
+	float Random_IfResult;
+	if(GetRandomInfo_Emitter_Determinism_false_Func_Output_UseDeterministicRandoms)
+	{
+	Random_IfResult = Result5;
+	}
+	else
+	{
+	Random_IfResult = Result6;
+	}
+	float Result7 = In_Min + Random_IfResult;
+	Out_Result = Result7;
+}
+
+void InitializeParticle_Emitter_Func_(inout FSimulationContext Context)
+{
+	float Lifetime_IfResult;
+	if(Context.MapSpawn.InitializeParticle.WriteLifetime)
+	{
+	Lifetime_IfResult = Context.MapSpawn.Constants.Emitter.InitializeParticle.Lifetime;
+	}
+	else
+	{
+	Lifetime_IfResult = Context.MapSpawn.Particles.Lifetime;
+	}
+	Context.MapSpawn.Particles.Lifetime = Lifetime_IfResult;
+	float4 Color_IfResult;
+	if(Context.MapSpawn.InitializeParticle.WriteColor)
+	{
+	Color_IfResult = Context.MapSpawn.Constants.Emitter.InitializeParticle.Color;
+	}
+	else
+	{
+	Color_IfResult = Context.MapSpawn.Particles.Color;
+	}
+	Context.MapSpawn.Particles.Color = Color_IfResult;
+	float Mass_IfResult;
+	if(Context.MapSpawn.InitializeParticle.WriteMass)
+	{
+	Mass_IfResult = Context.MapSpawn.Constants.Emitter.InitializeParticle.Mass;
+	}
+	else
+	{
+	Mass_IfResult = Context.MapSpawn.Particles.Mass;
+	}
+	Context.MapSpawn.Particles.Mass = Mass_IfResult;
+	float2 SpriteSize_IfResult;
+	if(Context.MapSpawn.InitializeParticle.WriteSpriteSize)
+	{
+	SpriteSize_IfResult = Context.MapSpawn.Constants.Emitter.InitializeParticle.SpriteSize;
+	}
+	else
+	{
+	SpriteSize_IfResult = Context.MapSpawn.Particles.SpriteSize;
+	}
+	Context.MapSpawn.Particles.SpriteSize = SpriteSize_IfResult;
+	float SpriteRotation_IfResult;
+	if(Context.MapSpawn.InitializeParticle.WriteSpriteRotation)
+	{
+	SpriteRotation_IfResult = Context.MapSpawn.Constants.Emitter.InitializeParticle.SpriteRotation;
+	}
+	else
+	{
+	SpriteRotation_IfResult = Context.MapSpawn.Particles.SpriteRotation;
+	}
+	Context.MapSpawn.Particles.SpriteRotation = SpriteRotation_IfResult;
+	float3 Scale_IfResult;
+	if(Context.MapSpawn.InitializeParticle.WriteScale)
+	{
+	Scale_IfResult = Context.MapSpawn.Constants.Emitter.InitializeParticle.MeshScale;
+	}
+	else
+	{
+	Scale_IfResult = Context.MapSpawn.Particles.Scale;
+	}
+	Context.MapSpawn.Particles.Scale = Scale_IfResult;
+	float3 Scale_IfResult1;
+	if(Context.MapSpawn.InitializeParticle.WritePosition)
+	{
+	Scale_IfResult1 = Context.MapSpawn.InitializeParticle.Position;
+	}
+	else
+	{
+	Scale_IfResult1 = Context.MapSpawn.Particles.Position;
+	}
+	Context.MapSpawn.Particles.Position = Scale_IfResult1;
+	float MaterialRandom_IfResult;
+	if(Context.MapSpawn.InitializeParticle.WriteMaterialRandom)
+	{
+	MaterialRandom_IfResult = Context.MapSpawn.InitializeParticle.MaterialRandom;
+	}
+	else
+	{
+	MaterialRandom_IfResult = Context.MapSpawn.Particles.MaterialRandom;
+	}
+	Context.MapSpawn.Particles.MaterialRandom = MaterialRandom_IfResult;
+}
+
+void DirectionAndLengthSafe_Func_(float3 In_V, float3 In_Fallback, float In_Threshold, float In_FallbackLength, out float3 Out_Direction, out float Out_Length, out bool Out_BelowThreshold, inout FSimulationContext Context)
+{
+	float Result8 = length(In_V);
+	bool Result9 = NiagaraAll(Result8 < In_Threshold);
+	float Result10 = length(In_Fallback);
+	float3 Vector_IfResult2;
+	float float_IfResult;
+	if(Result9)
+	{
+	Vector_IfResult2 = In_Fallback;
+	float_IfResult = In_FallbackLength;
+	}
+	else
+	{
+	Vector_IfResult2 = In_V;
+	float_IfResult = Result8;
+	}
+	float3 Result11 = Vector_IfResult2 / float_IfResult;
+	float3 Vector_IfResult3;
+	float float_IfResult1;
+	if(Result9)
+	{
+	Vector_IfResult3 = In_Fallback;
+	float_IfResult1 = Result10;
+	}
+	else
+	{
+	Vector_IfResult3 = Result11;
+	float_IfResult1 = float_IfResult;
+	}
+	Out_Direction = Vector_IfResult3;
+	Out_Length = float_IfResult1;
+	Out_BelowThreshold = Result9;
+}
+
+void TransformBase_Func_(int In_SourceSpace, int In_DestinationSpace, float4x4 In_LocalToWorldTransform, float4x4 In_WorldToLocalTransform, bool In_bLocalSpace, out bool Out_bUseOriginal, out float4x4 Out_OutTransform, inout FSimulationContext Context)
+{
+	int Constant55 = 0;
+	bool Result12 = NiagaraAll(In_SourceSpace == Constant55);
+	int Constant56 = 0;
+	bool Result13 = NiagaraAll(In_DestinationSpace == Constant56);
+	bool Result14 = Result12 && Result13;
+	int Constant57 = 1;
+	bool Result15 = NiagaraAll(In_SourceSpace == Constant57);
+	int Constant58 = 1;
+	bool Result16 = NiagaraAll(In_DestinationSpace == Constant58);
+	bool Result17 = Result15 && Result16;
+	bool Result18 = Result14 || Result17;
+	int Constant59 = 2;
+	bool Result19 = NiagaraAll(In_SourceSpace == Constant59);
+	int Constant60 = 2;
+	bool Result20 = NiagaraAll(In_DestinationSpace == Constant60);
+	bool Result21 = Result19 && Result20;
+	bool Result22 = Result18 || Result21;
+	bool Result23 = Result12 && Result20;
+	bool Result24 = Result19 && Result13;
+	bool Result25 = Result23 || Result24;
+	bool Result26 = In_bLocalSpace && Result25;
+	bool Result27 = Result22 || Result26;
+	bool Result28 = !In_bLocalSpace;
+	bool Result29 = Result12 && Result16;
+	bool Result30 = Result15 && Result13;
+	bool Result31 = Result29 || Result30;
+	bool Result32 = Result28 && Result31;
+	bool Result33 = Result27 || Result32;
+	bool Result34 = In_bLocalSpace && Result29;
+	bool Result35 = Result19 && Result16;
+	bool Result36 = Result34 || Result35;
+	bool Result37 = Result28 && Result24;
+	bool Result38 = Result36 || Result37;
+	float4x4 Matrix_IfResult1;
+	if(Result38)
+	{
+	Matrix_IfResult1 = In_LocalToWorldTransform;
+	}
+	else
+	{
+	Matrix_IfResult1 = In_WorldToLocalTransform;
+	}
+	Out_bUseOriginal = Result33;
+	Out_OutTransform = Matrix_IfResult1;
+}
+
+void InitialMeshOrientation_TransformVector_Emitter_Func_(float3 In_InVector, int In_SourceSpace, int In_DestinationSpace, bool In_ApplyScale, out float3 Out_OutVector, inout FSimulationContext Context)
+{
+	bool Constant54 = true;
+	float4x4 Matrix_IfResult;
+	float4x4 Matrix001_IfResult;
+	if(In_ApplyScale)
+	{
+	Matrix_IfResult = Context.MapSpawn.Engine.Owner.SystemLocalToWorld;
+	Matrix001_IfResult = Context.MapSpawn.Engine.Owner.SystemWorldToLocal;
+	}
+	else
+	{
+	Matrix_IfResult = Context.MapSpawn.Engine.Owner.SystemLocalToWorldNoScale;
+	Matrix001_IfResult = Context.MapSpawn.Engine.Owner.SystemWorldToLocalNoScale;
+	}
+	bool TransformBase_Func_Output_bUseOriginal;
+	float4x4 TransformBase_Func_Output_OutTransform;
+	TransformBase_Func_(In_SourceSpace, In_DestinationSpace, Matrix_IfResult, Matrix001_IfResult, Constant54, TransformBase_Func_Output_bUseOriginal, TransformBase_Func_Output_OutTransform, Context);
+	float3 Result39 = mul(float4(In_InVector,0.0),TransformBase_Func_Output_OutTransform).xyz;
+	float3 Vector_IfResult4;
+	if(TransformBase_Func_Output_bUseOriginal)
+	{
+	Vector_IfResult4 = In_InVector;
+	}
+	else
+	{
+	Vector_IfResult4 = Result39;
+	}
+	Out_OutVector = Vector_IfResult4;
+}
+
+void CustomHlsl5A25A2A4455E3C692D3322A954DF887F_Func_(bool In_InputsAreNormalized, float3 In_From, float3 In_To, out float4 Out_Result)
+{
+
+
+
+		float NormAB = 1.0f;
+	    float NormFactor = sqrt((In_From.x*In_From.x + In_From.y*In_From.y + In_From.z*In_From.z) * (In_To.x*In_To.x + In_To.y*In_To.y + In_To.z*In_To.z));
+
+	    if (In_InputsAreNormalized)
+	    {
+	         NormAB = 1.0f;
+	    }
+	    else
+	    {
+	         NormAB = NormFactor;
+	   }
+
+		float w = NormAB + dot(In_From, In_To);
+	    float4 Result1 = float4(In_From.y * In_To.z - In_From.z * In_To.y,
+						   In_From.z * In_To.x - In_From.x * In_To.z,
+						   In_From.x * In_To.y - In_From.y * In_To.x,
+						   w);
+		float4 Result2 = float4(-In_From.z, 0.0f, In_From.x, 0.0f);
+	    float4 Result3 = float4(0.0f, -In_From.z, In_From.y, 0.0f);
+
+
+	    if (abs(In_From.x) > abs(In_From.y))
+	    {
+	        Out_Result = Result2;
+	    }
+	    else
+	    {
+	        Out_Result = Result3;
+	    }
+
+
+		if (w >= 3.4e-4f * NormAB)
+		{
+
+			Out_Result = Result1;
+		}
+
+		Out_Result = normalize(Out_Result);
+
+}
+
+void FindQuatBetween_Func_(float3 In_From, float3 In_To, bool In_InputsAreNormalized, out float4 Out_NewOutput, inout FSimulationContext Context)
+{
+	float4 CustomHlsl5A25A2A4455E3C692D3322A954DF887F_Func_Output_Result;
+	CustomHlsl5A25A2A4455E3C692D3322A954DF887F_Func_(In_InputsAreNormalized, In_From, In_To, CustomHlsl5A25A2A4455E3C692D3322A954DF887F_Func_Output_Result);
+	Out_NewOutput = CustomHlsl5A25A2A4455E3C692D3322A954DF887F_Func_Output_Result;
+}
+
+void CustomHlsl001624D816540ECD5F976902A85E139007C_Func_(float4 In_Quat1, float4 In_Quat2, out float4 Out_Result)
+{
+
+float4 SIGN_MASK0 = float4( 1.f, -1.f, 1.f, -1.f );
+	float4 SIGN_MASK1 = float4( 1.f, 1.f, -1.f, -1.f );
+	float4 SIGN_MASK2 = float4( -1.f, 1.f, 1.f, -1.f );
+	Out_Result = (In_Quat1.wwww * In_Quat2);
+	Out_Result = ((In_Quat1.xxxx * In_Quat2.wzyx) * SIGN_MASK0) + Out_Result;
+	Out_Result = ((In_Quat1.yyyy * In_Quat2.zwxy)* SIGN_MASK1) + Out_Result;
+	Out_Result = ((In_Quat1.zzzz * In_Quat2.yxwz)* SIGN_MASK2) + Out_Result;
+}
+
+void MultiplyQuaternion_Func_(float4 In_QuaternionA, float4 In_QuaternionB, out float4 Out_Quaternion, inout FSimulationContext Context)
+{
+	float4 CustomHlsl001624D816540ECD5F976902A85E139007C_Func_Output_Result;
+	CustomHlsl001624D816540ECD5F976902A85E139007C_Func_(In_QuaternionA, In_QuaternionB, CustomHlsl001624D816540ECD5F976902A85E139007C_Func_Output_Result);
+	Out_Quaternion = CustomHlsl001624D816540ECD5F976902A85E139007C_Func_Output_Result;
+}
+
+void InitialMeshOrientation_Emitter_Func_(inout FSimulationContext Context)
+{
+	float3 Constant49 = float3(1,0,0);
+	float Constant50 = 1e-05;
+	float Constant51 = 1;
+	float3 DirectionAndLengthSafe_Func_Output_Direction;
+	float DirectionAndLengthSafe_Func_Output_Length;
+	bool DirectionAndLengthSafe_Func_Output_BelowThreshold;
+	DirectionAndLengthSafe_Func_(Context.MapSpawn.Constants.Emitter.InitialMeshOrientation.OrientationAxis, Constant49, Constant50, Constant51, DirectionAndLengthSafe_Func_Output_Direction, DirectionAndLengthSafe_Func_Output_Length, DirectionAndLengthSafe_Func_Output_BelowThreshold, Context);
+	int Constant52 = 0;
+	bool Constant53 = false;
+	float3 InitialMeshOrientation_TransformVector_Emitter_Func_Output_OutVector;
+	InitialMeshOrientation_TransformVector_Emitter_Func_(DirectionAndLengthSafe_Func_Output_Direction, Context.MapSpawn.InitialMeshOrientation.OrientationCoordinateSpace, Constant52, Constant53, InitialMeshOrientation_TransformVector_Emitter_Func_Output_OutVector, Context);
+	int Constant61 = 0;
+	bool Constant62 = false;
+	float3 InitialMeshOrientation_TransformVector_Emitter_Func_Output_OutVector1;
+	InitialMeshOrientation_TransformVector_Emitter_Func_(Context.MapSpawn.Constants.Emitter.InitialMeshOrientation.OrientationVector, Context.MapSpawn.InitialMeshOrientation.OrientationCoordinateSpace, Constant61, Constant62, InitialMeshOrientation_TransformVector_Emitter_Func_Output_OutVector1, Context);
+	float Constant63 = 1e-05;
+	float Constant64 = 1;
+	float3 DirectionAndLengthSafe_Func_Output_Direction1;
+	float DirectionAndLengthSafe_Func_Output_Length1;
+	bool DirectionAndLengthSafe_Func_Output_BelowThreshold1;
+	DirectionAndLengthSafe_Func_(InitialMeshOrientation_TransformVector_Emitter_Func_Output_OutVector1, InitialMeshOrientation_TransformVector_Emitter_Func_Output_OutVector, Constant63, Constant64, DirectionAndLengthSafe_Func_Output_Direction1, DirectionAndLengthSafe_Func_Output_Length1, DirectionAndLengthSafe_Func_Output_BelowThreshold1, Context);
+	bool Constant65 = false;
+	float4 FindQuatBetween_Func_Output_NewOutput;
+	FindQuatBetween_Func_(InitialMeshOrientation_TransformVector_Emitter_Func_Output_OutVector, DirectionAndLengthSafe_Func_Output_Direction1, Constant65, FindQuatBetween_Func_Output_NewOutput, Context);
+	float4 MultiplyQuaternion_Func_Output_Quaternion;
+	MultiplyQuaternion_Func_(Context.MapSpawn.Particles.MeshOrientation, FindQuatBetween_Func_Output_NewOutput, MultiplyQuaternion_Func_Output_Quaternion, Context);
+	Context.MapSpawn.Particles.InitialRotation = MultiplyQuaternion_Func_Output_Quaternion;
+	Context.MapSpawn.Particles.MeshOrientation = MultiplyQuaternion_Func_Output_Quaternion;
+	Context.MapSpawn.InitialMeshOrientation.OrientationVector = Context.MapSpawn.Constants.Emitter.InitialMeshOrientation.OrientationVector;
+	bool Constant66 = false;
+	Context.MapSpawn.Local.InitialMeshOrientation.Temp = Constant66;
+}
+
+void ParticleState_Emitter_Func_(inout FSimulationContext Context)
+{
+	bool Result40 = NiagaraAll(Context.MapUpdate.Particles.Age <= Context.MapUpdate.Engine.DeltaTime);
+	Context.MapUpdate.OUTPUT_VAR.ParticleState.FirstFrame = Result40;
+	float Result41 = Context.MapUpdate.Particles.Age + Context.MapUpdate.ParticleState.DeltaTime;
+	float Constant69 = 1e-05;
+	float Result42 = max(Context.MapUpdate.ParticleState.Lifetime, Constant69);
+	float Constant70 = 0.0001;
+	float Result43 = Result42 - Constant70;
+	bool Result44 = NiagaraAll(Result41 < Result43);
+	bool Constant71 = false;
+	bool bool_IfResult;
+	if(Result44)
+	{
+	bool_IfResult = Context.MapUpdate.DataInstance.Alive;
+	}
+	else
+	{
+	bool_IfResult = Constant71;
+	}
+	float Result45 = Result41 / Result42;
+	Context.MapUpdate.DataInstance.Alive = bool_IfResult;
+	Context.MapUpdate.Particles.Age = Result41;
+	Context.MapUpdate.Particles.NormalizedAge = Result45;
+}
+
+void SolveForcesAndVelocity_Emitter_Func_(inout FSimulationContext Context)
+{
+	Context.MapUpdate.Local.SolveForcesAndVelocity.DeltaTime = Context.MapUpdate.SolveForcesAndVelocity.DeltaTime;
+	Context.MapUpdate.Local.SolveForcesAndVelocity.PhysicsForce = Context.MapUpdate.SolveForcesAndVelocity.Force;
+	Context.MapUpdate.OUTPUT_VAR.SolveForcesAndVelocity.IncomingPhysicsForce = Context.MapUpdate.SolveForcesAndVelocity.Force;
+	Context.MapUpdate.OUTPUT_VAR.SolveForcesAndVelocity.Velocity = Context.MapUpdate.SolveForcesAndVelocity.Velocity;
+	Context.MapUpdate.Local.SolveForcesAndVelocity.Mass = Context.MapUpdate.SolveForcesAndVelocity.Mass;
+	float Constant81 = 0.0001;
+	float Result46 = max(Context.MapUpdate.Local.SolveForcesAndVelocity.Mass, Constant81);
+	float Result47 = Reciprocal(Result46);
+	float3 Result48 = Result47 * Context.MapUpdate.Local.SolveForcesAndVelocity.PhysicsForce;
+	Context.MapUpdate.Local.SolveForcesAndVelocity.PhysicsForce = Result48;
+	float3 Result49 = Context.MapUpdate.Local.SolveForcesAndVelocity.PhysicsForce * Context.MapUpdate.Local.SolveForcesAndVelocity.DeltaTime + Context.MapUpdate.OUTPUT_VAR.SolveForcesAndVelocity.Velocity;
+	float Constant82 = 0;
+	float Result50 = max(Context.MapUpdate.Transient.PhysicsDrag, Constant82);
+	float Result51 = Context.MapUpdate.Local.SolveForcesAndVelocity.DeltaTime * Result50;
+	float Constant83 = 1;
+	float Result52 = Result51 + Constant83;
+	float3 Result53 = Result49 / Result52;
+	Context.MapUpdate.OUTPUT_VAR.SolveForcesAndVelocity.Velocity = Result53;
+	Context.MapUpdate.OUTPUT_VAR.SolveForcesAndVelocity.IncomingPhysicsDrag = Context.MapUpdate.Transient.PhysicsDrag;
+	Context.MapUpdate.OUTPUT_VAR.SolveForcesAndVelocity.Velocity = Context.MapUpdate.OUTPUT_VAR.SolveForcesAndVelocity.Velocity;
+	Context.MapUpdate.OUTPUT_VAR.SolveForcesAndVelocity.Velocity = Context.MapUpdate.OUTPUT_VAR.SolveForcesAndVelocity.Velocity;
+	float3 Result54 = Context.MapUpdate.OUTPUT_VAR.SolveForcesAndVelocity.Velocity * Context.MapUpdate.Local.SolveForcesAndVelocity.DeltaTime + Context.MapUpdate.SolveForcesAndVelocity.Position;
+	Context.MapUpdate.OUTPUT_VAR.SolveForcesAndVelocity.Position = Result54;
+	float3 Position_IfResult;
+	float3 Velocity_IfResult;
+	float3 PreviousVelocity_IfResult;
+	if(Context.MapUpdate.SolveForcesAndVelocity.WritetoIntrinsicProperties)
+	{
+	Position_IfResult = Context.MapUpdate.OUTPUT_VAR.SolveForcesAndVelocity.Position;
+	Velocity_IfResult = Context.MapUpdate.OUTPUT_VAR.SolveForcesAndVelocity.Velocity;
+	PreviousVelocity_IfResult = Context.MapUpdate.OUTPUT_VAR.SolveForcesAndVelocity.Velocity;
+	}
+	else
+	{
+	Position_IfResult = Context.MapUpdate.SolveForcesAndVelocity.Position;
+	Velocity_IfResult = Context.MapUpdate.SolveForcesAndVelocity.Velocity;
+	PreviousVelocity_IfResult = Context.MapUpdate.SolveForcesAndVelocity.PreviousVelocity;
+	}
+	Context.MapUpdate.Particles.Position = Position_IfResult;
+	Context.MapUpdate.Particles.Velocity = Velocity_IfResult;
+	Context.MapUpdate.Particles.PreviousVelocity = PreviousVelocity_IfResult;
+	float3 Constant84 = float3(0,0,0);
+	float Constant85 = 0;
+	float3 ForceVector_IfResult;
+	float Drag_IfResult;
+	if(Context.MapUpdate.SolveForcesAndVelocity.WritetoIntrinsicProperties)
+	{
+	ForceVector_IfResult = Constant84;
+	Drag_IfResult = Constant85;
+	}
+	else
+	{
+	ForceVector_IfResult = Context.MapUpdate.Transient.PhysicsForce;
+	Drag_IfResult = Context.MapUpdate.Transient.PhysicsDrag;
+	}
+	Context.MapUpdate.Transient.PhysicsForce = ForceVector_IfResult;
+	Context.MapUpdate.Transient.PhysicsDrag = Drag_IfResult;
+}
+
+void CalculateRadiusFromSpriteSize_Method_NewEnumerator0_Func_(float2 In_SpriteSize, out float Out_Radius, inout FSimulationContext Context)
+{
+	float Result55 = length(In_SpriteSize);
+	float Constant130 = 0.5;
+	float Result56 = Result55 * Constant130;
+	Out_Radius = Result56;
+}
+
+void Collision_TransformPosition_Emitter_Func_(float3 In_InPosition, int In_SourceSpace, int In_DestinationSpace, bool In_ApplyScale, out float3 Out_OutPosition, inout FSimulationContext Context)
+{
+	bool Constant134 = true;
+	float4x4 Matrix_IfResult2;
+	float4x4 Matrix001_IfResult1;
+	if(In_ApplyScale)
+	{
+	Matrix_IfResult2 = Context.MapUpdate.Engine.Owner.SystemLocalToWorld;
+	Matrix001_IfResult1 = Context.MapUpdate.Engine.Owner.SystemWorldToLocal;
+	}
+	else
+	{
+	Matrix_IfResult2 = Context.MapUpdate.Engine.Owner.SystemLocalToWorldNoScale;
+	Matrix001_IfResult1 = Context.MapUpdate.Engine.Owner.SystemWorldToLocalNoScale;
+	}
+	bool TransformBase_Func_Output_bUseOriginal1;
+	float4x4 TransformBase_Func_Output_OutTransform1;
+	TransformBase_Func_(In_SourceSpace, In_DestinationSpace, Matrix_IfResult2, Matrix001_IfResult1, Constant134, TransformBase_Func_Output_bUseOriginal1, TransformBase_Func_Output_OutTransform1, Context);
+	float3 Result58 = mul(float4(In_InPosition,1.0),TransformBase_Func_Output_OutTransform1).xyz;
+	float3 Vector_IfResult5;
+	if(TransformBase_Func_Output_bUseOriginal1)
+	{
+	Vector_IfResult5 = In_InPosition;
+	}
+	else
+	{
+	Vector_IfResult5 = Result58;
+	}
+	Out_OutPosition = Vector_IfResult5;
+}
+
+void Collision_TransformVector002_Emitter_Func_(float3 In_InVector, int In_SourceSpace, int In_DestinationSpace, bool In_ApplyScale, out float3 Out_OutVector, inout FSimulationContext Context)
+{
+	bool Constant138 = true;
+	float4x4 Matrix_IfResult3;
+	float4x4 Matrix001_IfResult2;
+	if(In_ApplyScale)
+	{
+	Matrix_IfResult3 = Context.MapUpdate.Engine.Owner.SystemLocalToWorld;
+	Matrix001_IfResult2 = Context.MapUpdate.Engine.Owner.SystemWorldToLocal;
+	}
+	else
+	{
+	Matrix_IfResult3 = Context.MapUpdate.Engine.Owner.SystemLocalToWorldNoScale;
+	Matrix001_IfResult2 = Context.MapUpdate.Engine.Owner.SystemWorldToLocalNoScale;
+	}
+	bool TransformBase_Func_Output_bUseOriginal2;
+	float4x4 TransformBase_Func_Output_OutTransform2;
+	TransformBase_Func_(In_SourceSpace, In_DestinationSpace, Matrix_IfResult3, Matrix001_IfResult2, Constant138, TransformBase_Func_Output_bUseOriginal2, TransformBase_Func_Output_OutTransform2, Context);
+	float3 Result59 = mul(float4(In_InVector,0.0),TransformBase_Func_Output_OutTransform2).xyz;
+	float3 Vector_IfResult6;
+	if(TransformBase_Func_Output_bUseOriginal2)
+	{
+	Vector_IfResult6 = In_InVector;
+	}
+	else
+	{
+	Vector_IfResult6 = Result59;
+	}
+	Out_OutVector = Vector_IfResult6;
+}
+
+void Collision_TransformVector003_Emitter_Func_(float3 In_InVector, int In_SourceSpace, int In_DestinationSpace, bool In_ApplyScale, out float3 Out_OutVector, inout FSimulationContext Context)
+{
+	bool Constant142 = true;
+	float4x4 Matrix_IfResult4;
+	float4x4 Matrix001_IfResult3;
+	if(In_ApplyScale)
+	{
+	Matrix_IfResult4 = Context.MapUpdate.Engine.Owner.SystemLocalToWorld;
+	Matrix001_IfResult3 = Context.MapUpdate.Engine.Owner.SystemWorldToLocal;
+	}
+	else
+	{
+	Matrix_IfResult4 = Context.MapUpdate.Engine.Owner.SystemLocalToWorldNoScale;
+	Matrix001_IfResult3 = Context.MapUpdate.Engine.Owner.SystemWorldToLocalNoScale;
+	}
+	bool TransformBase_Func_Output_bUseOriginal3;
+	float4x4 TransformBase_Func_Output_OutTransform3;
+	TransformBase_Func_(In_SourceSpace, In_DestinationSpace, Matrix_IfResult4, Matrix001_IfResult3, Constant142, TransformBase_Func_Output_bUseOriginal3, TransformBase_Func_Output_OutTransform3, Context);
+	float3 Result60 = mul(float4(In_InVector,0.0),TransformBase_Func_Output_OutTransform3).xyz;
+	float3 Vector_IfResult7;
+	if(TransformBase_Func_Output_bUseOriginal3)
+	{
+	Vector_IfResult7 = In_InVector;
+	}
+	else
+	{
+	Vector_IfResult7 = Result60;
+	}
+	Out_OutVector = Vector_IfResult7;
+}
+
+void PlaneSphereCollisionDetection_Func_(float3 In_PlaneNormal, float3 In_PlanePivotPoint, float3 In_InitialSphereLocation, float3 In_SpherePositionDelta, float In_CollisionRadius, float In_PhysicsDeltaTime, float In_MaxCorrectiondistance, out bool Out_Collides, out float3 Out_IntersectionLocation, out float3 Out_PreASC45IntersectionSphereCenterLocation, out float3 Out_InitialPositionRelativeCollisionLocation, out float Out_TimeElapsedToCollision, out float Out_RemainingTimePostCollision, out float Out_PercentageofTimeUsedToPerformCollision, out float Out_InitialDistanceBetweenTheSphereASC39sSurfaceandtheCollision, out float Out_UninterruptedAnimatedSphereASC39sDistancetoCollisionPlane, inout FSimulationContext Context)
+{
+	float3 Result74 = -(In_PlaneNormal);
+	float3 Result75 = In_PlanePivotPoint - In_InitialSphereLocation;
+	float Result76 = dot(Result74,Result75);
+	float Result77 = Result76 - In_CollisionRadius;
+	float Constant179 = 0;
+	bool Result78 = NiagaraAll(Result77 < Constant179);
+	bool Constant180 = true;
+	float3 Result79 = Result74 * Result76;
+	float3 Result80 = Result79 + In_InitialSphereLocation;
+	float Result81 = max(In_MaxCorrectiondistance, Result77);
+	float3 Result82 = Result81 * Result74;
+	float3 Result83 = Result82 + In_InitialSphereLocation;
+	float Constant181 = 0;
+	float Constant182 = 0;
+	float3 Result84 = In_InitialSphereLocation + In_SpherePositionDelta;
+	float3 Result85 = In_PlanePivotPoint - Result84;
+	float Result86 = dot(Result74,Result85);
+	float Result87 = Result86 - In_CollisionRadius;
+	float Constant183 = 0;
+	bool Result88 = NiagaraAll(Result87 <= Constant183);
+	float Result89 = abs(Result87);
+	float Result90 = Result77 - Result87;
+	float Result91 = abs(Result90);
+	float Constant184 = 1e-06;
+	float Result92 = max(Result91, Constant184);
+	float Result93 = Result89 / Result92;
+	float Constant185 = 0;
+	bool Result94 = NiagaraAll(Result93 == Constant185);
+	bool Result95 = Result78 || Result94;
+	float Constant186 = 1;
+	float float_IfResult3;
+	if(Result95)
+	{
+	float_IfResult3 = Constant186;
+	}
+	else
+	{
+	float_IfResult3 = Result93;
+	}
+	float Result96 = 1 - float_IfResult3;
+	float3 Result97 = Result96 * In_SpherePositionDelta;
+	float3 Result98 = In_InitialSphereLocation + Result97;
+	float3 Result99 = Result74 * In_CollisionRadius;
+	float3 Result100 = Result98 + Result99;
+	float3 Result101 = Result100 - Result98;
+	float Result102 = In_PhysicsDeltaTime * Result96;
+	float Result103 = In_PhysicsDeltaTime * float_IfResult3;
+	bool Collides_IfResult;
+	float3 IntersectionLocation_IfResult;
+	float3 PreASC45IntersectionSphereCenterLocation_IfResult;
+	float3 InitialPositionRelativeCollisionLocation_IfResult;
+	float TimeElapsedToCollision_IfResult;
+	float RemainingTimePostCollision_IfResult;
+	float PercentageofTimeUsedToPerformCollision_IfResult;
+	float InitialDistanceBetweenTheSphereASC39sSurfaceandtheCollision_IfResult;
+	float UninterruptedAnimatedSphereASC39sDistancetoCollisionPlane_IfResult;
+	if(Result78)
+	{
+	Collides_IfResult = Constant180;
+	IntersectionLocation_IfResult = Result80;
+	PreASC45IntersectionSphereCenterLocation_IfResult = Result83;
+	InitialPositionRelativeCollisionLocation_IfResult = Result79;
+	TimeElapsedToCollision_IfResult = Constant181;
+	RemainingTimePostCollision_IfResult = In_PhysicsDeltaTime;
+	PercentageofTimeUsedToPerformCollision_IfResult = Constant182;
+	InitialDistanceBetweenTheSphereASC39sSurfaceandtheCollision_IfResult = Result77;
+	UninterruptedAnimatedSphereASC39sDistancetoCollisionPlane_IfResult = Result87;
+	}
+	else
+	{
+	Collides_IfResult = Result88;
+	IntersectionLocation_IfResult = Result100;
+	PreASC45IntersectionSphereCenterLocation_IfResult = Result98;
+	InitialPositionRelativeCollisionLocation_IfResult = Result101;
+	TimeElapsedToCollision_IfResult = Result102;
+	RemainingTimePostCollision_IfResult = Result103;
+	PercentageofTimeUsedToPerformCollision_IfResult = Result96;
+	InitialDistanceBetweenTheSphereASC39sSurfaceandtheCollision_IfResult = Result77;
+	UninterruptedAnimatedSphereASC39sDistancetoCollisionPlane_IfResult = Result87;
+	}
+	Out_Collides = Collides_IfResult;
+	Out_IntersectionLocation = IntersectionLocation_IfResult;
+	Out_PreASC45IntersectionSphereCenterLocation = PreASC45IntersectionSphereCenterLocation_IfResult;
+	Out_InitialPositionRelativeCollisionLocation = InitialPositionRelativeCollisionLocation_IfResult;
+	Out_TimeElapsedToCollision = TimeElapsedToCollision_IfResult;
+	Out_RemainingTimePostCollision = RemainingTimePostCollision_IfResult;
+	Out_PercentageofTimeUsedToPerformCollision = PercentageofTimeUsedToPerformCollision_IfResult;
+	Out_InitialDistanceBetweenTheSphereASC39sSurfaceandtheCollision = InitialDistanceBetweenTheSphereASC39sSurfaceandtheCollision_IfResult;
+	Out_UninterruptedAnimatedSphereASC39sDistancetoCollisionPlane = UninterruptedAnimatedSphereASC39sDistancetoCollisionPlane_IfResult;
+}
+
+void RandomRangeFloat_Func_(float2 In_Min, float2 In_Max, int In_Seed, int In_RandomnessMode, bool In_OverrideSeed, out float2 Out_Result, inout FSimulationContext Context)
+{
+	int Constant197 = (0);
+	bool Constant198 = false;
+	int Constant199 = 0;
+	int Constant200 = (0);
+	bool Constant201 = false;
+	NiagaraRandInfo GetRandomInfo_Emitter_Determinism_false_Func_Output_RandomInfo1;
+	bool GetRandomInfo_Emitter_Determinism_false_Func_Output_UseDeterministicRandoms1;
+	GetRandomInfo_Emitter_Determinism_false_Func_(In_Seed, Constant197, In_OverrideSeed, Constant199, Constant200, Constant201, In_RandomnessMode, GetRandomInfo_Emitter_Determinism_false_Func_Output_RandomInfo1, GetRandomInfo_Emitter_Determinism_false_Func_Output_UseDeterministicRandoms1, Context);
+	float2 Result119 = In_Max - In_Min;
+	int Seed11;
+	int Seed21;
+	int Seed31;
+	Seed11 = GetRandomInfo_Emitter_Determinism_false_Func_Output_RandomInfo1.Seed1;
+	Seed21 = GetRandomInfo_Emitter_Determinism_false_Func_Output_RandomInfo1.Seed2;
+	Seed31 = GetRandomInfo_Emitter_Determinism_false_Func_Output_RandomInfo1.Seed3;
+	float2 Result120 = rand_float(Result119, Seed11, Seed21, Seed31);
+	float2 Result121 = rand_float(Result119);
+	float2 Random_IfResult1;
+	if(GetRandomInfo_Emitter_Determinism_false_Func_Output_UseDeterministicRandoms1)
+	{
+	Random_IfResult1 = Result120;
+	}
+	else
+	{
+	Random_IfResult1 = Result121;
+	}
+	float2 Result122 = In_Min + Random_IfResult1;
+	Out_Result = Result122;
+}
+
+void MultiplyVectorWithQuaternion_Func_(float3 In_VECTOR_VAR, float4 In_Quaternion, out float3 Out_Vector, inout FSimulationContext Context)
+{
+	float3 Output0;
+	float Output13;
+	Output0.x = In_Quaternion.x;
+	Output0.y = In_Quaternion.y;
+	Output0.z = In_Quaternion.z;
+	Output13 = In_Quaternion.w;
+	float Result134 = dot(Output0,In_VECTOR_VAR);
+	float Constant210 = 2;
+	float Result135 = Result134 * Constant210;
+	float3 Result136 = Output0 * Result135;
+	float Result137 = Output13 * Output13;
+	float Result138 = dot(Output0,Output0);
+	float Result139 = Result137 - Result138;
+	float3 Result140 = Result139 * In_VECTOR_VAR;
+	float3 Result141 = Result136 + Result140;
+	float3 Result142 = cross(Output0,In_VECTOR_VAR);
+	float Constant211 = 2;
+	float Result143 = Output13 * Constant211;
+	float3 Result144 = Result142 * Result143;
+	float3 Result145 = Result141 + Result144;
+	Out_Vector = Result145;
+}
+
+void RandomizeCollisionNormals_Func_(float3 In_ConeAxis, float In_Scale, float In_Spread, out float3 Out_Ouput, inout FSimulationContext Context)
+{
+	float Constant191 = 0;
+	float Constant192 = 1;
+	float Result117 = clamp(In_Spread,Constant191,Constant192);
+	float Constant193 = -1;
+	float Result118 = Result117 * Constant193;
+	float2 Output11;
+	Output11.x = Result118;
+	Output11.y = Result118;
+	float2 Output12;
+	Output12.x = Result117;
+	Output12.y = Result117;
+	int Constant194 = -1;
+	int Constant195 = 0;
+	bool Constant196 = false;
+	float2 RandomRangeFloat_Func_Output_Result1;
+	RandomRangeFloat_Func_(Output11, Output12, Constant194, Constant195, Constant196, RandomRangeFloat_Func_Output_Result1, Context);
+	float X;
+	float Y;
+	X = RandomRangeFloat_Func_Output_Result1.x;
+	Y = RandomRangeFloat_Func_Output_Result1.y;
+	float3 Constant202 = float3(1,0,0);
+	float3 Result123 = X * Constant202;
+	float3 Constant203 = float3(0,1,0);
+	float3 Result124 = Y * Constant203;
+	float3 Result125 = Result123 + Result124;
+	float Result126 = abs(X);
+	float Result127 = abs(Y);
+	float Result128 = max(Result126, Result127);
+	float Result129 = 1 - Result128;
+	float3 Constant204 = float3(0,0,1);
+	float3 Result130 = Result129 * Constant204;
+	float3 Result131 = Result125 + Result130;
+	float3 Result132 = normalize(Result131);
+	float3 Result133 = Result132 * In_Scale;
+	float3 Constant205 = float3(0,0,1);
+	float3 Constant206 = float3(0,0,1);
+	float Constant207 = 1e-05;
+	float Constant208 = 1;
+	float3 DirectionAndLengthSafe_Func_Output_Direction4;
+	float DirectionAndLengthSafe_Func_Output_Length4;
+	bool DirectionAndLengthSafe_Func_Output_BelowThreshold4;
+	DirectionAndLengthSafe_Func_(In_ConeAxis, Constant206, Constant207, Constant208, DirectionAndLengthSafe_Func_Output_Direction4, DirectionAndLengthSafe_Func_Output_Length4, DirectionAndLengthSafe_Func_Output_BelowThreshold4, Context);
+	bool Constant209 = false;
+	float4 FindQuatBetween_Func_Output_NewOutput1;
+	FindQuatBetween_Func_(Constant205, DirectionAndLengthSafe_Func_Output_Direction4, Constant209, FindQuatBetween_Func_Output_NewOutput1, Context);
+	float3 MultiplyVectorWithQuaternion_Func_Output_Vector;
+	MultiplyVectorWithQuaternion_Func_(Result133, FindQuatBetween_Func_Output_NewOutput1, MultiplyVectorWithQuaternion_Func_Output_Vector, Context);
+	Out_Ouput = MultiplyVectorWithQuaternion_Func_Output_Vector;
+}
+
+void ReflectVector_Func_(float3 In_InVector, float3 In_Normal, out float3 Out_Reflected, inout FSimulationContext Context)
+{
+	float Result146 = dot(In_InVector,In_Normal);
+	float Result147 = Result146 + Result146;
+	float3 Result148 = Result147 * In_Normal;
+	float3 Result149 = In_InVector - Result148;
+	Out_Reflected = Result149;
+}
+
+void CentimeterMeterConversion_Func_(float3 In_INPUT_VAR, out float3 Out_CentimeterstoMeters, out float3 Out_MeterstoCentimeters, inout FSimulationContext Context)
+{
+	float Constant212 = 0.01;
+	float3 Result150 = In_INPUT_VAR * Constant212;
+	float Constant213 = 100;
+	float3 Result151 = In_INPUT_VAR * Constant213;
+	Out_CentimeterstoMeters = Result150;
+	Out_MeterstoCentimeters = Result151;
+}
+
+void ProjectVectorOnPlane_Func_(float3 In_VECTOR_VAR, float3 In_Normal, out float3 Out_Ouput, inout FSimulationContext Context)
+{
+	float Result155 = dot(In_VECTOR_VAR,In_Normal);
+	float3 Result156 = Result155 * In_Normal;
+	float3 Result157 = In_VECTOR_VAR - Result156;
+	Out_Ouput = Result157;
+}
+
+void Collision_CollisionQueryAndResponse_Emitter_Func_(inout FSimulationContext Context)
+{
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleInitialDataInstanceAlive = Context.MapUpdate.DataInstance.Alive;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.DeltaTime = Context.MapUpdate.Collision.CollisionQueryAndResponse.DeltaTime;
+	float3 Result61 = Context.MapUpdate.Transient.PhysicsForce / Context.MapUpdate.Particles.Mass;
+	float3 Result62 = Result61 * Context.MapUpdate.Collision.CollisionQueryAndResponse.DeltaTime;
+	float3 Result63 = Result62 + Context.MapUpdate.Particles.Velocity;
+	float3 Result64 = Result63 * Context.MapUpdate.Collision.CollisionQueryAndResponse.DeltaTime;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleTraceOrigin = Context.MapUpdate.Particles.Position;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleForceContribution = Result62;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleAttemptedMovementThisUpdate = Result64;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleInitialForceDividedByMass = Result61;
+	float3 Constant168 = float3(0,0,-1);
+	float Constant169 = 1e-05;
+	float Constant170 = 1;
+	float3 DirectionAndLengthSafe_Func_Output_Direction2;
+	float DirectionAndLengthSafe_Func_Output_Length2;
+	bool DirectionAndLengthSafe_Func_Output_BelowThreshold2;
+	DirectionAndLengthSafe_Func_(Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleForceContribution, Constant168, Constant169, Constant170, DirectionAndLengthSafe_Func_Output_Direction2, DirectionAndLengthSafe_Func_Output_Length2, DirectionAndLengthSafe_Func_Output_BelowThreshold2, Context);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleTraceVector = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleForceContribution;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleTraceDirection = DirectionAndLengthSafe_Func_Output_Direction2;
+	float3 Result65 = DirectionAndLengthSafe_Func_Output_Direction2 * Context.MapUpdate.Collision.CollisionQueryAndResponse.ParticleRadius;
+	float3 Result66 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleTraceOrigin - Result65;
+	float3 Result67 = Context.MapUpdate.Collision.CollisionQueryAndResponse.TraceVectorLengthMultiplier * Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleForceContribution;
+	float3 Result68 = Result65 + Result67;
+	float3 Constant171 = float3(0,0,-1);
+	float Constant172 = 1e-05;
+	float Constant173 = 1;
+	float3 DirectionAndLengthSafe_Func_Output_Direction3;
+	float DirectionAndLengthSafe_Func_Output_Length3;
+	bool DirectionAndLengthSafe_Func_Output_BelowThreshold3;
+	DirectionAndLengthSafe_Func_(Result68, Constant171, Constant172, Constant173, DirectionAndLengthSafe_Func_Output_Direction3, DirectionAndLengthSafe_Func_Output_Length3, DirectionAndLengthSafe_Func_Output_BelowThreshold3, Context);
+	float Result69 = min(DirectionAndLengthSafe_Func_Output_Length3, Context.MapUpdate.Collision.CollisionQueryAndResponse.MaxTraceLength);
+	float3 Result70 = DirectionAndLengthSafe_Func_Output_Direction3 * Result69;
+	float3 Result71 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleTraceOrigin + Result70;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleTraceWorldStart = Result66;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleTraceWorldEnd = Result71;
+	int Constant174 = 1;
+	int PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_NextFrameQueryID;
+	bool PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_CollisionValid;
+	bool PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_IsTraceInsideMesh;
+	float3 PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_CollisionPosWorld;
+	float3 PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_CollisionNormal;
+	float PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_CollisionMaterialFriction;
+	float PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_CollisionMaterialRestitution;
+	PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQuery(0, Context.MapUpdate.Particles.Collision.CollisionQueryAndResponse.CollisionID, Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleTraceWorldStart, Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleTraceWorldEnd, Constant174, PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_NextFrameQueryID, PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_CollisionValid, PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_IsTraceInsideMesh, PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_CollisionPosWorld, PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_CollisionNormal, PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_CollisionMaterialFriction, PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_CollisionMaterialRestitution);
+	bool Result72 = !PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_IsTraceInsideMesh;
+	bool Result73 = PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_CollisionValid && Result72;
+	bool Constant175 = false;
+	bool Constant176 = true;
+	Context.MapUpdate.Particles.Collision.CollisionQueryAndResponse.CollisionID = PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_NextFrameQueryID;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReturnedCollisionValidBool = Result73;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReturnedCollisionWorldPosition = PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_CollisionPosWorld;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReturnedCollisionNormal = PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_CollisionNormal;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReturnedFriction = PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponseQueryOutput_CollisionMaterialFriction;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReturnedRestitution = Context.MapUpdate.Collision.CollisionQueryAndResponse.ParticleRestitutionCoeffiecient;
+	Context.MapUpdate.DataInstance.Alive = Context.MapUpdate.DataInstance.Alive;
+	Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse.DepthBasedCollisionParticleOccluded = Constant175;
+	Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse.ParticleOnScreen = Constant176;
+	float3 Constant177 = float3(0,0,1);
+	float3 Constant178 = float3(0,0,-1e+16);
+	float3 PlaneNormal_IfResult;
+	float3 PlanePivotPoint_IfResult;
+	if(Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReturnedCollisionValidBool)
+	{
+	PlaneNormal_IfResult = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReturnedCollisionNormal;
+	PlanePivotPoint_IfResult = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReturnedCollisionWorldPosition;
+	}
+	else
+	{
+	PlaneNormal_IfResult = Constant177;
+	PlanePivotPoint_IfResult = Constant178;
+	}
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModulePlaneNormal = PlaneNormal_IfResult;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModulePlanePivotPoint = PlanePivotPoint_IfResult;
+	bool PlaneSphereCollisionDetection_Func_Output_Collides;
+	float3 PlaneSphereCollisionDetection_Func_Output_IntersectionLocation;
+	float3 PlaneSphereCollisionDetection_Func_Output_PreASC45IntersectionSphereCenterLocation;
+	float3 PlaneSphereCollisionDetection_Func_Output_InitialPositionRelativeCollisionLocation;
+	float PlaneSphereCollisionDetection_Func_Output_TimeElapsedToCollision;
+	float PlaneSphereCollisionDetection_Func_Output_RemainingTimePostCollision;
+	float PlaneSphereCollisionDetection_Func_Output_PercentageofTimeUsedToPerformCollision;
+	float PlaneSphereCollisionDetection_Func_Output_InitialDistanceBetweenTheSphereASC39sSurfaceandtheCollision;
+	float PlaneSphereCollisionDetection_Func_Output_UninterruptedAnimatedSphereASC39sDistancetoCollisionPlane;
+	PlaneSphereCollisionDetection_Func_(Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModulePlaneNormal, Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModulePlanePivotPoint, Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleTraceOrigin, Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleAttemptedMovementThisUpdate, Context.MapUpdate.Collision.CollisionQueryAndResponse.ParticleRadius, Context.MapUpdate.Collision.CollisionQueryAndResponse.DeltaTime, Context.MapUpdate.Collision.CollisionQueryAndResponse.MaxIntersectionCorrectionDistance, PlaneSphereCollisionDetection_Func_Output_Collides, PlaneSphereCollisionDetection_Func_Output_IntersectionLocation, PlaneSphereCollisionDetection_Func_Output_PreASC45IntersectionSphereCenterLocation, PlaneSphereCollisionDetection_Func_Output_InitialPositionRelativeCollisionLocation, PlaneSphereCollisionDetection_Func_Output_TimeElapsedToCollision, PlaneSphereCollisionDetection_Func_Output_RemainingTimePostCollision, PlaneSphereCollisionDetection_Func_Output_PercentageofTimeUsedToPerformCollision, PlaneSphereCollisionDetection_Func_Output_InitialDistanceBetweenTheSphereASC39sSurfaceandtheCollision, PlaneSphereCollisionDetection_Func_Output_UninterruptedAnimatedSphereASC39sDistancetoCollisionPlane, Context);
+	Context.MapUpdate.Transient.CollisionWorldPosition = PlaneSphereCollisionDetection_Func_Output_IntersectionLocation;
+	Context.MapUpdate.Transient.CollisionParticleWorldPosition = PlaneSphereCollisionDetection_Func_Output_PreASC45IntersectionSphereCenterLocation;
+	Context.MapUpdate.Transient.CollisionParticleRelativeCollisionLocation = PlaneSphereCollisionDetection_Func_Output_InitialPositionRelativeCollisionLocation;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleTickDeltaForThisCollisionUpdate = PlaneSphereCollisionDetection_Func_Output_TimeElapsedToCollision;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModulePhysicsDeltaTime = PlaneSphereCollisionDetection_Func_Output_RemainingTimePostCollision;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModulePercentageOfTickDedicatedToUpdatingPosition = PlaneSphereCollisionDetection_Func_Output_PercentageofTimeUsedToPerformCollision;
+	Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse.CollisionPenetrationDistance = PlaneSphereCollisionDetection_Func_Output_InitialDistanceBetweenTheSphereASC39sSurfaceandtheCollision;
+	Context.MapUpdate.Transient.CollisionDistanceToCollision = PlaneSphereCollisionDetection_Func_Output_UninterruptedAnimatedSphereASC39sDistancetoCollisionPlane;
+	float Constant187 = 0;
+	bool Result104 = NiagaraAll(Context.MapUpdate.Transient.CollisionDistanceToCollision <= Constant187);
+	bool Result105 = Context.MapUpdate.Collision.CollisionQueryAndResponse.CollisionEnabled && Result104;
+	bool Result106 = Result105 || Context.MapUpdate.Particles.HasCollided;
+	Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse.PhysicsCollidesThisFrame = Result105;
+	Context.MapUpdate.Particles.HasCollided = Result106;
+	float3 Result107 = -(Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModulePlaneNormal);
+	float Result108 = dot(Result107,Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleAttemptedMovementThisUpdate);
+	float Result109 = Context.MapUpdate.Collision.CollisionQueryAndResponse.DeltaTime * Context.MapUpdate.Collision.CollisionQueryAndResponse.DeltaTime;
+	float3 Result110 = Result109 * Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleInitialForceDividedByMass;
+	float Result111 = dot(Result107,Result110);
+	float Result112 = Result108 - Result111;
+	float Constant188 = 0.1;
+	bool Result113 = NiagaraAll(Result112 < Constant188);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleRemoveRestitution = Result113;
+	float3 Result114 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleAttemptedMovementThisUpdate / Context.MapUpdate.Collision.CollisionQueryAndResponse.DeltaTime;
+	float float_IfResult4;
+	if(Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse.PhysicsCollidesThisFrame)
+	{
+	float_IfResult4 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModulePhysicsDeltaTime;
+	}
+	else
+	{
+	float_IfResult4 = Context.MapUpdate.Collision.CollisionQueryAndResponse.DeltaTime;
+	}
+	float Constant189 = 0;
+	float float_IfResult5;
+	if(Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleRemoveRestitution)
+	{
+	float_IfResult5 = Constant189;
+	}
+	else
+	{
+	float_IfResult5 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReturnedRestitution;
+	}
+	Context.MapUpdate.Transient.CollisionValid = Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse.PhysicsCollidesThisFrame;
+	Context.MapUpdate.Transient.CollisionSize = Context.MapUpdate.Collision.CollisionQueryAndResponse.ParticleRadius;
+	Context.MapUpdate.Transient.CollisionNormal = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModulePlaneNormal;
+	Context.MapUpdate.Transient.CollisionVelocity = Result114;
+	Context.MapUpdate.Transient.CollisionFriction = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReturnedFriction;
+	Context.MapUpdate.Transient.PhysicsDeltaTime = float_IfResult4;
+	Context.MapUpdate.Transient.CollisionRestitution = float_IfResult5;
+	bool Result115 = !Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleRemoveRestitution;
+	bool Result116 = Result115 && Context.MapUpdate.Collision.CollisionQueryAndResponse.RandomizeCollisionNormal;
+	float Constant190 = 1;
+	float3 RandomizeCollisionNormals_Func_Output_Ouput;
+	RandomizeCollisionNormals_Func_(Context.MapUpdate.Transient.CollisionNormal, Constant190, Context.MapUpdate.Collision.CollisionQueryAndResponse.CollisionNormalRandomizationPercentage, RandomizeCollisionNormals_Func_Output_Ouput, Context);
+	float3 Vector_IfResult8;
+	if(Result116)
+	{
+	Vector_IfResult8 = RandomizeCollisionNormals_Func_Output_Ouput;
+	}
+	else
+	{
+	Vector_IfResult8 = Context.MapUpdate.Transient.CollisionNormal;
+	}
+	float3 ReflectVector_Func_Output_Reflected;
+	ReflectVector_Func_(Context.MapUpdate.Transient.CollisionVelocity, Vector_IfResult8, ReflectVector_Func_Output_Reflected, Context);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReflectedVelocity = ReflectVector_Func_Output_Reflected;
+	float3 CentimeterMeterConversion_Func_Output_CentimeterstoMeters;
+	float3 CentimeterMeterConversion_Func_Output_MeterstoCentimeters;
+	CentimeterMeterConversion_Func_(Context.MapUpdate.Transient.CollisionVelocity, CentimeterMeterConversion_Func_Output_CentimeterstoMeters, CentimeterMeterConversion_Func_Output_MeterstoCentimeters, Context);
+	float3 Result152 = Context.MapUpdate.Particles.Mass * CentimeterMeterConversion_Func_Output_CentimeterstoMeters;
+	float Constant214 = -1;
+	float3 Result153 = Result152 * Constant214;
+	float Result154 = dot(Result153,Context.MapUpdate.Transient.CollisionNormal);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleNormalForceInNewtons = Result154;
+	float3 ProjectVectorOnPlane_Func_Output_Ouput;
+	ProjectVectorOnPlane_Func_(Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReflectedVelocity, Context.MapUpdate.Transient.CollisionNormal, ProjectVectorOnPlane_Func_Output_Ouput, Context);
+	float3 Constant215 = float3(0,0,0);
+	float Constant216 = 1e-05;
+	float Constant217 = 1;
+	float3 DirectionAndLengthSafe_Func_Output_Direction5;
+	float DirectionAndLengthSafe_Func_Output_Length5;
+	bool DirectionAndLengthSafe_Func_Output_BelowThreshold5;
+	DirectionAndLengthSafe_Func_(ProjectVectorOnPlane_Func_Output_Ouput, Constant215, Constant216, Constant217, DirectionAndLengthSafe_Func_Output_Direction5, DirectionAndLengthSafe_Func_Output_Length5, DirectionAndLengthSafe_Func_Output_BelowThreshold5, Context);
+	float3 CentimeterMeterConversion_Func_Output_CentimeterstoMeters1;
+	float3 CentimeterMeterConversion_Func_Output_MeterstoCentimeters1;
+	CentimeterMeterConversion_Func_(ProjectVectorOnPlane_Func_Output_Ouput, CentimeterMeterConversion_Func_Output_CentimeterstoMeters1, CentimeterMeterConversion_Func_Output_MeterstoCentimeters1, Context);
+	float3 Result158 = CentimeterMeterConversion_Func_Output_CentimeterstoMeters1 * Context.MapUpdate.Particles.Mass;
+	float float_IfResult6;
+	if(Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleRemoveRestitution)
+	{
+	float_IfResult6 = Context.MapUpdate.Collision.CollisionQueryAndResponse.DynamicFrictionCoefficient;
+	}
+	else
+	{
+	float_IfResult6 = Context.MapUpdate.Collision.CollisionQueryAndResponse.BounceCollisionFriction;
+	}
+	float3 Result159 = DirectionAndLengthSafe_Func_Output_Direction5 * float_IfResult6 * Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleNormalForceInNewtons;
+	float3 Result160 = Result158 - Result159;
+	float3 Constant218 = float3(0,0,0);
+	float Constant219 = 1e-05;
+	float Constant220 = 1;
+	float3 DirectionAndLengthSafe_Func_Output_Direction6;
+	float DirectionAndLengthSafe_Func_Output_Length6;
+	bool DirectionAndLengthSafe_Func_Output_BelowThreshold6;
+	DirectionAndLengthSafe_Func_(Result160, Constant218, Constant219, Constant220, DirectionAndLengthSafe_Func_Output_Direction6, DirectionAndLengthSafe_Func_Output_Length6, DirectionAndLengthSafe_Func_Output_BelowThreshold6, Context);
+	float Result161 = dot(DirectionAndLengthSafe_Func_Output_Direction5,DirectionAndLengthSafe_Func_Output_Direction6);
+	float Constant221 = 0;
+	bool Result162 = NiagaraAll(Result161 <= Constant221);
+	float3 Vector_IfResult9;
+	if(Result162)
+	{
+	Vector_IfResult9 = Result158;
+	}
+	else
+	{
+	Vector_IfResult9 = Result159;
+	}
+	float Constant222 = -1;
+	float3 Result163 = Vector_IfResult9 * Constant222;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleFrictionForceVectorInNewtons = Result163;
+	float3 Result164 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleFrictionForceVectorInNewtons / Context.MapUpdate.Particles.Mass;
+	float3 CentimeterMeterConversion_Func_Output_CentimeterstoMeters2;
+	float3 CentimeterMeterConversion_Func_Output_MeterstoCentimeters2;
+	CentimeterMeterConversion_Func_(Result164, CentimeterMeterConversion_Func_Output_CentimeterstoMeters2, CentimeterMeterConversion_Func_Output_MeterstoCentimeters2, Context);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleFrictionForceVelocityVector = CentimeterMeterConversion_Func_Output_MeterstoCentimeters2;
+	float3 Result165 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReflectedVelocity + Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleFrictionForceVelocityVector;
+	float Result166 = dot(Context.MapUpdate.Transient.CollisionNormal,Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReflectedVelocity);
+	float3 Result167 = Context.MapUpdate.Transient.CollisionNormal * Result166;
+	float Result168 = 1 - Context.MapUpdate.Transient.CollisionRestitution;
+	float3 Result169 = Result167 * Result168;
+	float3 Result170 = Result165 - Result169;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReflectedVelocityWithFrictionApplied = Result170;
+	float3 Particleposition_IfResult;
+	if(Context.MapUpdate.Transient.CollisionValid)
+	{
+	Particleposition_IfResult = Context.MapUpdate.Transient.CollisionParticleWorldPosition;
+	}
+	else
+	{
+	Particleposition_IfResult = Context.MapUpdate.Particles.Position;
+	}
+	Context.MapUpdate.Particles.Position = Particleposition_IfResult;
+	float3 Constant223 = float3(0,0,1);
+	float Constant224 = 1e-05;
+	float Constant225 = 1;
+	float3 DirectionAndLengthSafe_Func_Output_Direction7;
+	float DirectionAndLengthSafe_Func_Output_Length7;
+	bool DirectionAndLengthSafe_Func_Output_BelowThreshold7;
+	DirectionAndLengthSafe_Func_(Context.MapUpdate.Transient.CollisionVelocity, Constant223, Constant224, Constant225, DirectionAndLengthSafe_Func_Output_Direction7, DirectionAndLengthSafe_Func_Output_Length7, DirectionAndLengthSafe_Func_Output_BelowThreshold7, Context);
+	float Result171 = dot(DirectionAndLengthSafe_Func_Output_Direction7,Context.MapUpdate.Transient.CollisionNormal);
+	float Constant226 = 0;
+	bool Result172 = NiagaraAll(Result171 < Constant226);
+	bool Result173 = Result172 && Context.MapUpdate.Transient.CollisionValid;
+	float3 Constant227 = float3(0,0,0);
+	float3 physicsforce_IfResult;
+	float3 Velocity_IfResult1;
+	if(Result173)
+	{
+	physicsforce_IfResult = Constant227;
+	Velocity_IfResult1 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReflectedVelocityWithFrictionApplied;
+	}
+	else
+	{
+	physicsforce_IfResult = Context.MapUpdate.Transient.PhysicsForce;
+	Velocity_IfResult1 = Context.MapUpdate.Particles.Velocity;
+	}
+	Context.MapUpdate.Transient.PhysicsForce = physicsforce_IfResult;
+	Context.MapUpdate.Particles.Velocity = Velocity_IfResult1;
+}
+
+void Collision_CollisionQueryAndResponse001_Emitter_Func_(inout FSimulationContext Context)
+{
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleInitialDataInstanceAlive = Context.MapUpdate.DataInstance.Alive;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.DeltaTime = Context.MapUpdate.Collision.CollisionQueryAndResponse001.DeltaTime;
+	float3 Result174 = Context.MapUpdate.Transient.PhysicsForce / Context.MapUpdate.Particles.Mass;
+	float3 Result175 = Result174 * Context.MapUpdate.Collision.CollisionQueryAndResponse001.DeltaTime;
+	float3 Result176 = Result175 + Context.MapUpdate.Particles.Velocity;
+	float3 Result177 = Result176 * Context.MapUpdate.Collision.CollisionQueryAndResponse001.DeltaTime;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleTraceOrigin = Context.MapUpdate.Particles.Position;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleForceContribution = Result175;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleAttemptedMovementThisUpdate = Result177;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleInitialForceDividedByMass = Result174;
+	float3 Constant251 = float3(0,0,-1);
+	float Constant252 = 1e-05;
+	float Constant253 = 1;
+	float3 DirectionAndLengthSafe_Func_Output_Direction8;
+	float DirectionAndLengthSafe_Func_Output_Length8;
+	bool DirectionAndLengthSafe_Func_Output_BelowThreshold8;
+	DirectionAndLengthSafe_Func_(Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleAttemptedMovementThisUpdate, Constant251, Constant252, Constant253, DirectionAndLengthSafe_Func_Output_Direction8, DirectionAndLengthSafe_Func_Output_Length8, DirectionAndLengthSafe_Func_Output_BelowThreshold8, Context);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleTraceVector = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleAttemptedMovementThisUpdate;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleTraceDirection = DirectionAndLengthSafe_Func_Output_Direction8;
+	float3 Result178 = DirectionAndLengthSafe_Func_Output_Direction8 * Context.MapUpdate.Collision.CollisionQueryAndResponse001.ParticleRadius;
+	float3 Result179 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleTraceOrigin - Result178;
+	float3 Result180 = Context.MapUpdate.Collision.CollisionQueryAndResponse001.TraceVectorLengthMultiplier * Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleAttemptedMovementThisUpdate;
+	float3 Result181 = Result178 + Result180;
+	float3 Constant254 = float3(0,0,-1);
+	float Constant255 = 1e-05;
+	float Constant256 = 1;
+	float3 DirectionAndLengthSafe_Func_Output_Direction9;
+	float DirectionAndLengthSafe_Func_Output_Length9;
+	bool DirectionAndLengthSafe_Func_Output_BelowThreshold9;
+	DirectionAndLengthSafe_Func_(Result181, Constant254, Constant255, Constant256, DirectionAndLengthSafe_Func_Output_Direction9, DirectionAndLengthSafe_Func_Output_Length9, DirectionAndLengthSafe_Func_Output_BelowThreshold9, Context);
+	float Result182 = min(DirectionAndLengthSafe_Func_Output_Length9, Context.MapUpdate.Collision.CollisionQueryAndResponse001.MaxTraceLength);
+	float3 Result183 = DirectionAndLengthSafe_Func_Output_Direction9 * Result182;
+	float3 Result184 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleTraceOrigin + Result183;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleTraceWorldStart = Result179;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleTraceWorldEnd = Result184;
+	int Constant257 = 1;
+	int PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_NextFrameQueryID;
+	bool PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_CollisionValid;
+	bool PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_IsTraceInsideMesh;
+	float3 PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_CollisionPosWorld;
+	float3 PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_CollisionNormal;
+	float PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_CollisionMaterialFriction;
+	float PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_CollisionMaterialRestitution;
+	PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001Query(1, Context.MapUpdate.Particles.Collision.CollisionQueryAndResponse001.CollisionID, Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleTraceWorldStart, Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleTraceWorldEnd, Constant257, PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_NextFrameQueryID, PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_CollisionValid, PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_IsTraceInsideMesh, PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_CollisionPosWorld, PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_CollisionNormal, PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_CollisionMaterialFriction, PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_CollisionMaterialRestitution);
+	bool Result185 = !PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_IsTraceInsideMesh;
+	bool Result186 = PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_CollisionValid && Result185;
+	bool Constant258 = false;
+	bool Constant259 = true;
+	Context.MapUpdate.Particles.Collision.CollisionQueryAndResponse001.CollisionID = PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_NextFrameQueryID;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReturnedCollisionValidBool = Result186;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReturnedCollisionWorldPosition = PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_CollisionPosWorld;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReturnedCollisionNormal = PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_CollisionNormal;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReturnedFriction = PerformCollisionQueryAsyncCPU_CollisionCollisionQueryAndResponse001QueryOutput_CollisionMaterialFriction;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReturnedRestitution = Context.MapUpdate.Collision.CollisionQueryAndResponse001.ParticleRestitutionCoeffiecient;
+	Context.MapUpdate.DataInstance.Alive = Context.MapUpdate.DataInstance.Alive;
+	Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse001.DepthBasedCollisionParticleOccluded = Constant258;
+	Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse001.ParticleOnScreen = Constant259;
+	float3 Constant260 = float3(0,0,1);
+	float3 Constant261 = float3(0,0,-1e+16);
+	float3 PlaneNormal_IfResult1;
+	float3 PlanePivotPoint_IfResult1;
+	if(Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReturnedCollisionValidBool)
+	{
+	PlaneNormal_IfResult1 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReturnedCollisionNormal;
+	PlanePivotPoint_IfResult1 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReturnedCollisionWorldPosition;
+	}
+	else
+	{
+	PlaneNormal_IfResult1 = Constant260;
+	PlanePivotPoint_IfResult1 = Constant261;
+	}
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModulePlaneNormal = PlaneNormal_IfResult1;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModulePlanePivotPoint = PlanePivotPoint_IfResult1;
+	bool PlaneSphereCollisionDetection_Func_Output_Collides1;
+	float3 PlaneSphereCollisionDetection_Func_Output_IntersectionLocation1;
+	float3 PlaneSphereCollisionDetection_Func_Output_PreASC45IntersectionSphereCenterLocation1;
+	float3 PlaneSphereCollisionDetection_Func_Output_InitialPositionRelativeCollisionLocation1;
+	float PlaneSphereCollisionDetection_Func_Output_TimeElapsedToCollision1;
+	float PlaneSphereCollisionDetection_Func_Output_RemainingTimePostCollision1;
+	float PlaneSphereCollisionDetection_Func_Output_PercentageofTimeUsedToPerformCollision1;
+	float PlaneSphereCollisionDetection_Func_Output_InitialDistanceBetweenTheSphereASC39sSurfaceandtheCollision1;
+	float PlaneSphereCollisionDetection_Func_Output_UninterruptedAnimatedSphereASC39sDistancetoCollisionPlane1;
+	PlaneSphereCollisionDetection_Func_(Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModulePlaneNormal, Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModulePlanePivotPoint, Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleTraceOrigin, Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleAttemptedMovementThisUpdate, Context.MapUpdate.Collision.CollisionQueryAndResponse001.ParticleRadius, Context.MapUpdate.Collision.CollisionQueryAndResponse001.DeltaTime, Context.MapUpdate.Collision.CollisionQueryAndResponse001.MaxIntersectionCorrectionDistance, PlaneSphereCollisionDetection_Func_Output_Collides1, PlaneSphereCollisionDetection_Func_Output_IntersectionLocation1, PlaneSphereCollisionDetection_Func_Output_PreASC45IntersectionSphereCenterLocation1, PlaneSphereCollisionDetection_Func_Output_InitialPositionRelativeCollisionLocation1, PlaneSphereCollisionDetection_Func_Output_TimeElapsedToCollision1, PlaneSphereCollisionDetection_Func_Output_RemainingTimePostCollision1, PlaneSphereCollisionDetection_Func_Output_PercentageofTimeUsedToPerformCollision1, PlaneSphereCollisionDetection_Func_Output_InitialDistanceBetweenTheSphereASC39sSurfaceandtheCollision1, PlaneSphereCollisionDetection_Func_Output_UninterruptedAnimatedSphereASC39sDistancetoCollisionPlane1, Context);
+	Context.MapUpdate.Transient.CollisionWorldPosition = PlaneSphereCollisionDetection_Func_Output_IntersectionLocation1;
+	Context.MapUpdate.Transient.CollisionParticleWorldPosition = PlaneSphereCollisionDetection_Func_Output_PreASC45IntersectionSphereCenterLocation1;
+	Context.MapUpdate.Transient.CollisionParticleRelativeCollisionLocation = PlaneSphereCollisionDetection_Func_Output_InitialPositionRelativeCollisionLocation1;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleTickDeltaForThisCollisionUpdate = PlaneSphereCollisionDetection_Func_Output_TimeElapsedToCollision1;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModulePhysicsDeltaTime = PlaneSphereCollisionDetection_Func_Output_RemainingTimePostCollision1;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModulePercentageOfTickDedicatedToUpdatingPosition = PlaneSphereCollisionDetection_Func_Output_PercentageofTimeUsedToPerformCollision1;
+	Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse001.CollisionPenetrationDistance = PlaneSphereCollisionDetection_Func_Output_InitialDistanceBetweenTheSphereASC39sSurfaceandtheCollision1;
+	Context.MapUpdate.Transient.CollisionDistanceToCollision = PlaneSphereCollisionDetection_Func_Output_UninterruptedAnimatedSphereASC39sDistancetoCollisionPlane1;
+	float Constant262 = 0;
+	bool Result187 = NiagaraAll(Context.MapUpdate.Transient.CollisionDistanceToCollision <= Constant262);
+	bool Result188 = Context.MapUpdate.Collision.CollisionQueryAndResponse001.CollisionEnabled && Result187;
+	bool Result189 = Result188 || Context.MapUpdate.Particles.HasCollided;
+	Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse001.PhysicsCollidesThisFrame = Result188;
+	Context.MapUpdate.Particles.HasCollided = Result189;
+	float3 Result190 = -(Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModulePlaneNormal);
+	float Result191 = dot(Result190,Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleAttemptedMovementThisUpdate);
+	float Result192 = Context.MapUpdate.Collision.CollisionQueryAndResponse001.DeltaTime * Context.MapUpdate.Collision.CollisionQueryAndResponse001.DeltaTime;
+	float3 Result193 = Result192 * Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleInitialForceDividedByMass;
+	float Result194 = dot(Result190,Result193);
+	float Result195 = Result191 - Result194;
+	float Constant263 = 0.1;
+	bool Result196 = NiagaraAll(Result195 < Constant263);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleRemoveRestitution = Result196;
+	float3 Result197 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleAttemptedMovementThisUpdate / Context.MapUpdate.Collision.CollisionQueryAndResponse001.DeltaTime;
+	float float_IfResult7;
+	if(Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse001.PhysicsCollidesThisFrame)
+	{
+	float_IfResult7 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModulePhysicsDeltaTime;
+	}
+	else
+	{
+	float_IfResult7 = Context.MapUpdate.Collision.CollisionQueryAndResponse001.DeltaTime;
+	}
+	float Constant264 = 0;
+	float float_IfResult8;
+	if(Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleRemoveRestitution)
+	{
+	float_IfResult8 = Constant264;
+	}
+	else
+	{
+	float_IfResult8 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReturnedRestitution;
+	}
+	Context.MapUpdate.Transient.CollisionValid = Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse001.PhysicsCollidesThisFrame;
+	Context.MapUpdate.Transient.CollisionSize = Context.MapUpdate.Collision.CollisionQueryAndResponse001.ParticleRadius;
+	Context.MapUpdate.Transient.CollisionNormal = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModulePlaneNormal;
+	Context.MapUpdate.Transient.CollisionVelocity = Result197;
+	Context.MapUpdate.Transient.CollisionFriction = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReturnedFriction;
+	Context.MapUpdate.Transient.PhysicsDeltaTime = float_IfResult7;
+	Context.MapUpdate.Transient.CollisionRestitution = float_IfResult8;
+	bool Result198 = !Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleRemoveRestitution;
+	bool Result199 = Result198 && Context.MapUpdate.Collision.CollisionQueryAndResponse001.RandomizeCollisionNormal;
+	float Constant265 = 1;
+	float3 RandomizeCollisionNormals_Func_Output_Ouput1;
+	RandomizeCollisionNormals_Func_(Context.MapUpdate.Transient.CollisionNormal, Constant265, Context.MapUpdate.Collision.CollisionQueryAndResponse001.CollisionNormalRandomizationPercentage, RandomizeCollisionNormals_Func_Output_Ouput1, Context);
+	float3 Vector_IfResult10;
+	if(Result199)
+	{
+	Vector_IfResult10 = RandomizeCollisionNormals_Func_Output_Ouput1;
+	}
+	else
+	{
+	Vector_IfResult10 = Context.MapUpdate.Transient.CollisionNormal;
+	}
+	float3 ReflectVector_Func_Output_Reflected1;
+	ReflectVector_Func_(Context.MapUpdate.Transient.CollisionVelocity, Vector_IfResult10, ReflectVector_Func_Output_Reflected1, Context);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReflectedVelocity = ReflectVector_Func_Output_Reflected1;
+	float3 CentimeterMeterConversion_Func_Output_CentimeterstoMeters3;
+	float3 CentimeterMeterConversion_Func_Output_MeterstoCentimeters3;
+	CentimeterMeterConversion_Func_(Context.MapUpdate.Transient.CollisionVelocity, CentimeterMeterConversion_Func_Output_CentimeterstoMeters3, CentimeterMeterConversion_Func_Output_MeterstoCentimeters3, Context);
+	float3 Result200 = Context.MapUpdate.Particles.Mass * CentimeterMeterConversion_Func_Output_CentimeterstoMeters3;
+	float Constant266 = -1;
+	float3 Result201 = Result200 * Constant266;
+	float Result202 = dot(Result201,Context.MapUpdate.Transient.CollisionNormal);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleNormalForceInNewtons = Result202;
+	float3 ProjectVectorOnPlane_Func_Output_Ouput1;
+	ProjectVectorOnPlane_Func_(Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReflectedVelocity, Context.MapUpdate.Transient.CollisionNormal, ProjectVectorOnPlane_Func_Output_Ouput1, Context);
+	float3 Constant267 = float3(0,0,0);
+	float Constant268 = 1e-05;
+	float Constant269 = 1;
+	float3 DirectionAndLengthSafe_Func_Output_Direction10;
+	float DirectionAndLengthSafe_Func_Output_Length10;
+	bool DirectionAndLengthSafe_Func_Output_BelowThreshold10;
+	DirectionAndLengthSafe_Func_(ProjectVectorOnPlane_Func_Output_Ouput1, Constant267, Constant268, Constant269, DirectionAndLengthSafe_Func_Output_Direction10, DirectionAndLengthSafe_Func_Output_Length10, DirectionAndLengthSafe_Func_Output_BelowThreshold10, Context);
+	float3 CentimeterMeterConversion_Func_Output_CentimeterstoMeters4;
+	float3 CentimeterMeterConversion_Func_Output_MeterstoCentimeters4;
+	CentimeterMeterConversion_Func_(ProjectVectorOnPlane_Func_Output_Ouput1, CentimeterMeterConversion_Func_Output_CentimeterstoMeters4, CentimeterMeterConversion_Func_Output_MeterstoCentimeters4, Context);
+	float3 Result203 = CentimeterMeterConversion_Func_Output_CentimeterstoMeters4 * Context.MapUpdate.Particles.Mass;
+	float float_IfResult9;
+	if(Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleRemoveRestitution)
+	{
+	float_IfResult9 = Context.MapUpdate.Collision.CollisionQueryAndResponse001.DynamicFrictionCoefficient;
+	}
+	else
+	{
+	float_IfResult9 = Context.MapUpdate.Collision.CollisionQueryAndResponse001.BounceCollisionFriction;
+	}
+	float3 Result204 = DirectionAndLengthSafe_Func_Output_Direction10 * float_IfResult9 * Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleNormalForceInNewtons;
+	float3 Result205 = Result203 - Result204;
+	float3 Constant270 = float3(0,0,0);
+	float Constant271 = 1e-05;
+	float Constant272 = 1;
+	float3 DirectionAndLengthSafe_Func_Output_Direction11;
+	float DirectionAndLengthSafe_Func_Output_Length11;
+	bool DirectionAndLengthSafe_Func_Output_BelowThreshold11;
+	DirectionAndLengthSafe_Func_(Result205, Constant270, Constant271, Constant272, DirectionAndLengthSafe_Func_Output_Direction11, DirectionAndLengthSafe_Func_Output_Length11, DirectionAndLengthSafe_Func_Output_BelowThreshold11, Context);
+	float Result206 = dot(DirectionAndLengthSafe_Func_Output_Direction10,DirectionAndLengthSafe_Func_Output_Direction11);
+	float Constant273 = 0;
+	bool Result207 = NiagaraAll(Result206 <= Constant273);
+	float3 Vector_IfResult11;
+	if(Result207)
+	{
+	Vector_IfResult11 = Result203;
+	}
+	else
+	{
+	Vector_IfResult11 = Result204;
+	}
+	float Constant274 = -1;
+	float3 Result208 = Vector_IfResult11 * Constant274;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleFrictionForceVectorInNewtons = Result208;
+	float3 Result209 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleFrictionForceVectorInNewtons / Context.MapUpdate.Particles.Mass;
+	float3 CentimeterMeterConversion_Func_Output_CentimeterstoMeters5;
+	float3 CentimeterMeterConversion_Func_Output_MeterstoCentimeters5;
+	CentimeterMeterConversion_Func_(Result209, CentimeterMeterConversion_Func_Output_CentimeterstoMeters5, CentimeterMeterConversion_Func_Output_MeterstoCentimeters5, Context);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleFrictionForceVelocityVector = CentimeterMeterConversion_Func_Output_MeterstoCentimeters5;
+	float3 Result210 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReflectedVelocity + Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleFrictionForceVelocityVector;
+	float Result211 = dot(Context.MapUpdate.Transient.CollisionNormal,Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReflectedVelocity);
+	float3 Result212 = Context.MapUpdate.Transient.CollisionNormal * Result211;
+	float Result213 = 1 - Context.MapUpdate.Transient.CollisionRestitution;
+	float3 Result214 = Result212 * Result213;
+	float3 Result215 = Result210 - Result214;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReflectedVelocityWithFrictionApplied = Result215;
+	float3 Particleposition_IfResult1;
+	if(Context.MapUpdate.Transient.CollisionValid)
+	{
+	Particleposition_IfResult1 = Context.MapUpdate.Transient.CollisionParticleWorldPosition;
+	}
+	else
+	{
+	Particleposition_IfResult1 = Context.MapUpdate.Particles.Position;
+	}
+	Context.MapUpdate.Particles.Position = Particleposition_IfResult1;
+	float3 Constant275 = float3(0,0,1);
+	float Constant276 = 1e-05;
+	float Constant277 = 1;
+	float3 DirectionAndLengthSafe_Func_Output_Direction12;
+	float DirectionAndLengthSafe_Func_Output_Length12;
+	bool DirectionAndLengthSafe_Func_Output_BelowThreshold12;
+	DirectionAndLengthSafe_Func_(Context.MapUpdate.Transient.CollisionVelocity, Constant275, Constant276, Constant277, DirectionAndLengthSafe_Func_Output_Direction12, DirectionAndLengthSafe_Func_Output_Length12, DirectionAndLengthSafe_Func_Output_BelowThreshold12, Context);
+	float Result216 = dot(DirectionAndLengthSafe_Func_Output_Direction12,Context.MapUpdate.Transient.CollisionNormal);
+	float Constant278 = 0;
+	bool Result217 = NiagaraAll(Result216 < Constant278);
+	bool Result218 = Result217 && Context.MapUpdate.Transient.CollisionValid;
+	float3 Constant279 = float3(0,0,0);
+	float3 physicsforce_IfResult1;
+	float3 Velocity_IfResult2;
+	if(Result218)
+	{
+	physicsforce_IfResult1 = Constant279;
+	Velocity_IfResult2 = Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReflectedVelocityWithFrictionApplied;
+	}
+	else
+	{
+	physicsforce_IfResult1 = Context.MapUpdate.Transient.PhysicsForce;
+	Velocity_IfResult2 = Context.MapUpdate.Particles.Velocity;
+	}
+	Context.MapUpdate.Transient.PhysicsForce = physicsforce_IfResult1;
+	Context.MapUpdate.Particles.Velocity = Velocity_IfResult2;
+}
+
+void Collision_TransformPosition001_Emitter_Func_(float3 In_InPosition, int In_SourceSpace, int In_DestinationSpace, bool In_ApplyScale, out float3 Out_OutPosition, inout FSimulationContext Context)
+{
+	bool Constant299 = true;
+	float4x4 Matrix_IfResult5;
+	float4x4 Matrix001_IfResult4;
+	if(In_ApplyScale)
+	{
+	Matrix_IfResult5 = Context.MapUpdate.Engine.Owner.SystemLocalToWorld;
+	Matrix001_IfResult4 = Context.MapUpdate.Engine.Owner.SystemWorldToLocal;
+	}
+	else
+	{
+	Matrix_IfResult5 = Context.MapUpdate.Engine.Owner.SystemLocalToWorldNoScale;
+	Matrix001_IfResult4 = Context.MapUpdate.Engine.Owner.SystemWorldToLocalNoScale;
+	}
+	bool TransformBase_Func_Output_bUseOriginal4;
+	float4x4 TransformBase_Func_Output_OutTransform4;
+	TransformBase_Func_(In_SourceSpace, In_DestinationSpace, Matrix_IfResult5, Matrix001_IfResult4, Constant299, TransformBase_Func_Output_bUseOriginal4, TransformBase_Func_Output_OutTransform4, Context);
+	float3 Result242 = mul(float4(In_InPosition,1.0),TransformBase_Func_Output_OutTransform4).xyz;
+	float3 Vector_IfResult14;
+	if(TransformBase_Func_Output_bUseOriginal4)
+	{
+	Vector_IfResult14 = In_InPosition;
+	}
+	else
+	{
+	Vector_IfResult14 = Result242;
+	}
+	Out_OutPosition = Vector_IfResult14;
+}
+
+void Collision_TransformVector001_Emitter_Func_(float3 In_InVector, int In_SourceSpace, int In_DestinationSpace, bool In_ApplyScale, out float3 Out_OutVector, inout FSimulationContext Context)
+{
+	bool Constant303 = true;
+	float4x4 Matrix_IfResult6;
+	float4x4 Matrix001_IfResult5;
+	if(In_ApplyScale)
+	{
+	Matrix_IfResult6 = Context.MapUpdate.Engine.Owner.SystemLocalToWorld;
+	Matrix001_IfResult5 = Context.MapUpdate.Engine.Owner.SystemWorldToLocal;
+	}
+	else
+	{
+	Matrix_IfResult6 = Context.MapUpdate.Engine.Owner.SystemLocalToWorldNoScale;
+	Matrix001_IfResult5 = Context.MapUpdate.Engine.Owner.SystemWorldToLocalNoScale;
+	}
+	bool TransformBase_Func_Output_bUseOriginal5;
+	float4x4 TransformBase_Func_Output_OutTransform5;
+	TransformBase_Func_(In_SourceSpace, In_DestinationSpace, Matrix_IfResult6, Matrix001_IfResult5, Constant303, TransformBase_Func_Output_bUseOriginal5, TransformBase_Func_Output_OutTransform5, Context);
+	float3 Result243 = mul(float4(In_InVector,0.0),TransformBase_Func_Output_OutTransform5).xyz;
+	float3 Vector_IfResult15;
+	if(TransformBase_Func_Output_bUseOriginal5)
+	{
+	Vector_IfResult15 = In_InVector;
+	}
+	else
+	{
+	Vector_IfResult15 = Result243;
+	}
+	Out_OutVector = Vector_IfResult15;
+}
+
+void Collision_TransformVector_Emitter_Func_(float3 In_InVector, int In_SourceSpace, int In_DestinationSpace, bool In_ApplyScale, out float3 Out_OutVector, inout FSimulationContext Context)
+{
+	bool Constant307 = true;
+	float4x4 Matrix_IfResult7;
+	float4x4 Matrix001_IfResult6;
+	if(In_ApplyScale)
+	{
+	Matrix_IfResult7 = Context.MapUpdate.Engine.Owner.SystemLocalToWorld;
+	Matrix001_IfResult6 = Context.MapUpdate.Engine.Owner.SystemWorldToLocal;
+	}
+	else
+	{
+	Matrix_IfResult7 = Context.MapUpdate.Engine.Owner.SystemLocalToWorldNoScale;
+	Matrix001_IfResult6 = Context.MapUpdate.Engine.Owner.SystemWorldToLocalNoScale;
+	}
+	bool TransformBase_Func_Output_bUseOriginal6;
+	float4x4 TransformBase_Func_Output_OutTransform6;
+	TransformBase_Func_(In_SourceSpace, In_DestinationSpace, Matrix_IfResult7, Matrix001_IfResult6, Constant307, TransformBase_Func_Output_bUseOriginal6, TransformBase_Func_Output_OutTransform6, Context);
+	float3 Result244 = mul(float4(In_InVector,0.0),TransformBase_Func_Output_OutTransform6).xyz;
+	float3 Vector_IfResult16;
+	if(TransformBase_Func_Output_bUseOriginal6)
+	{
+	Vector_IfResult16 = In_InVector;
+	}
+	else
+	{
+	Vector_IfResult16 = Result244;
+	}
+	Out_OutVector = Vector_IfResult16;
+}
+
+void Collision_Emitter_Func_(inout FSimulationContext Context)
+{
+	float CalculateRadiusFromSpriteSize_Method_NewEnumerator0_Func_Output_Radius;
+	CalculateRadiusFromSpriteSize_Method_NewEnumerator0_Func_(Context.MapUpdate.Particles.SpriteSize, CalculateRadiusFromSpriteSize_Method_NewEnumerator0_Func_Output_Radius, Context);
+	float Result57 = Context.MapUpdate.Constants.Emitter.Collision.ParticleRadiusScale * CalculateRadiusFromSpriteSize_Method_NewEnumerator0_Func_Output_Radius;
+	Context.MapUpdate.Local.Collision.ModuleParticleRadius = Result57;
+	int Constant131 = 0;
+	int Constant132 = 1;
+	bool Constant133 = false;
+	float3 Collision_TransformPosition_Emitter_Func_Output_OutPosition;
+	Collision_TransformPosition_Emitter_Func_(Context.MapUpdate.Particles.Position, Constant131, Constant132, Constant133, Collision_TransformPosition_Emitter_Func_Output_OutPosition, Context);
+	int Constant135 = 0;
+	int Constant136 = 1;
+	bool Constant137 = false;
+	float3 Collision_TransformVector002_Emitter_Func_Output_OutVector;
+	Collision_TransformVector002_Emitter_Func_(Context.MapUpdate.Transient.PhysicsForce, Constant135, Constant136, Constant137, Collision_TransformVector002_Emitter_Func_Output_OutVector, Context);
+	int Constant139 = 0;
+	int Constant140 = 1;
+	bool Constant141 = false;
+	float3 Collision_TransformVector003_Emitter_Func_Output_OutVector;
+	Collision_TransformVector003_Emitter_Func_(Context.MapUpdate.Particles.Velocity, Constant139, Constant140, Constant141, Collision_TransformVector003_Emitter_Func_Output_OutVector, Context);
+	Context.MapUpdate.OUTPUT_VAR.Collision.TempPreviousPosition = Collision_TransformPosition_Emitter_Func_Output_OutPosition;
+	Context.MapUpdate.OUTPUT_VAR.Collision.TempPreviousForce = Collision_TransformVector002_Emitter_Func_Output_OutVector;
+	Context.MapUpdate.OUTPUT_VAR.Collision.TempPreviousVelocity = Collision_TransformVector003_Emitter_Func_Output_OutVector;
+	Context.MapUpdate.Particles.Position = Collision_TransformPosition_Emitter_Func_Output_OutPosition;
+	Context.MapUpdate.Transient.PhysicsForce = Collision_TransformVector002_Emitter_Func_Output_OutVector;
+	Context.MapUpdate.Particles.Velocity = Collision_TransformVector003_Emitter_Func_Output_OutVector;
+	float Constant143 = -1e+07;
+	float Constant144 = 0;
+	float float_IfResult2;
+	if(Context.MapUpdate.Collision.CorrectInterpenetration)
+	{
+	float_IfResult2 = Constant143;
+	}
+	else
+	{
+	float_IfResult2 = Constant144;
+	}
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.DynamicFrictionCoefficient = Context.MapUpdate.Constants.Emitter.Collision.Friction;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.DynamicFrictionCoefficient = Context.MapUpdate.Constants.Emitter.Collision.Friction;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.StaticFrictionCoefficient = Context.MapUpdate.Constants.Emitter.Collision.StaticFriction;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.StaticFrictionCoefficient = Context.MapUpdate.Constants.Emitter.Collision.StaticFriction;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.StaticFrictionEngagementSpeed = Context.MapUpdate.Constants.Emitter.Collision.StaticFrictionEngagementSpeed;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.StaticFrictionEngagementSpeed = Context.MapUpdate.Constants.Emitter.Collision.StaticFrictionEngagementSpeed;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.ParticleRadius = Context.MapUpdate.Local.Collision.ModuleParticleRadius;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.ParticleRadius = Context.MapUpdate.Local.Collision.ModuleParticleRadius;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.ParticleRestitutionCoeffiecient = Context.MapUpdate.Constants.Emitter.Collision.Restitution;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.ParticleRestitutionCoeffiecient = Context.MapUpdate.Constants.Emitter.Collision.Restitution;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.CollisionNormalRandomizationPercentage = Context.MapUpdate.Constants.Emitter.Collision.RandomizeCollisionNormal;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.CollisionNormalRandomizationPercentage = Context.MapUpdate.Constants.Emitter.Collision.RandomizeCollisionNormal;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.CollisionEnabled = Context.MapUpdate.Collision.CollisionEnabled;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.CollisionEnabled = Context.MapUpdate.Collision.CollisionEnabled;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.RandomizeCollisionNormal = Context.MapUpdate.Collision.RandomizeCollisionNormalVector;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.RandomizeCollisionNormal = Context.MapUpdate.Collision.RandomizeCollisionNormalVector;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.UpdateRotationalVelocity = Context.MapUpdate.Local.Collision.UpdateMeshRotation;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.UpdateRotationalVelocity = Context.MapUpdate.Local.Collision.UpdateMeshRotation;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.BounceCollisionFriction = Context.MapUpdate.Constants.Emitter.Collision.FrictionDuringaBounce;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.BounceCollisionFriction = Context.MapUpdate.Constants.Emitter.Collision.FrictionDuringaBounce;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.MaxIntersectionCorrectionDistance = float_IfResult2;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.MaxIntersectionCorrectionDistance = float_IfResult2;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.TraceVectorLengthMultiplier = Context.MapUpdate.Constants.Emitter.Collision.CPUTraceVectorLengthMultiplier;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.TraceVectorLengthMultiplier = Context.MapUpdate.Constants.Emitter.Collision.CPUTraceVectorLengthMultiplier;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.MaxTraceLength = Context.MapUpdate.Constants.Emitter.Collision.MaxCPUTraceLength;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.MaxTraceLength = Context.MapUpdate.Constants.Emitter.Collision.MaxCPUTraceLength;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.DeltaTime = Context.MapUpdate.Transient.PhysicsDeltaTime;
+	float3 Constant145 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleTraceOrigin = Constant145;
+	float3 Constant146 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleForceContribution = Constant146;
+	float3 Constant147 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleAttemptedMovementThisUpdate = Constant147;
+	float3 Constant148 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleInitialForceDividedByMass = Constant148;
+	float3 Constant149 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleTraceWorldStart = Constant149;
+	float3 Constant150 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleTraceWorldEnd = Constant150;
+	bool Constant151 = (false);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReturnedCollisionValidBool = Constant151;
+	float3 Constant152 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReturnedCollisionWorldPosition = Constant152;
+	float3 Constant153 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReturnedCollisionNormal = Constant153;
+	float Constant154 = (0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReturnedFriction = Constant154;
+	float Constant155 = (0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReturnedRestitution = Constant155;
+	float3 Constant156 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModulePlaneNormal = Constant156;
+	float3 Constant157 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModulePlanePivotPoint = Constant157;
+	float Constant158 = (0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModulePhysicsDeltaTime = Constant158;
+	float Constant159 = (0.0);
+	Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse.CollisionPenetrationDistance = Constant159;
+	bool Constant160 = (false);
+	Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse.PhysicsCollidesThisFrame = Constant160;
+	bool Constant161 = false;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleRemoveRestitution = Constant161;
+	float3 Constant162 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReflectedVelocity = Constant162;
+	float Constant163 = (0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleNormalForceInNewtons = Constant163;
+	int Constant164 = 0;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.CPUFrictionMergeType = Constant164;
+	float3 Constant165 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleFrictionForceVectorInNewtons = Constant165;
+	float3 Constant166 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleFrictionForceVelocityVector = Constant166;
+	float3 Constant167 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse.ModuleReflectedVelocityWithFrictionApplied = Constant167;
+	Collision_CollisionQueryAndResponse_Emitter_Func_(Context);
+	Context.MapUpdate.OUTPUT_VAR.Collision.ModuleCollision1Valid = Context.MapUpdate.Transient.CollisionValid;
+	Context.MapUpdate.OUTPUT_VAR.Collision.ModuleCollision1Normal = Context.MapUpdate.Transient.CollisionNormal;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.DeltaTime = Context.MapUpdate.Transient.PhysicsDeltaTime;
+	float3 Constant228 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleTraceOrigin = Constant228;
+	float3 Constant229 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleForceContribution = Constant229;
+	float3 Constant230 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleAttemptedMovementThisUpdate = Constant230;
+	float3 Constant231 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleInitialForceDividedByMass = Constant231;
+	float3 Constant232 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleTraceWorldStart = Constant232;
+	float3 Constant233 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleTraceWorldEnd = Constant233;
+	bool Constant234 = (false);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReturnedCollisionValidBool = Constant234;
+	float3 Constant235 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReturnedCollisionWorldPosition = Constant235;
+	float3 Constant236 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReturnedCollisionNormal = Constant236;
+	float Constant237 = (0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReturnedFriction = Constant237;
+	float Constant238 = (0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReturnedRestitution = Constant238;
+	float3 Constant239 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModulePlaneNormal = Constant239;
+	float3 Constant240 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModulePlanePivotPoint = Constant240;
+	float Constant241 = (0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModulePhysicsDeltaTime = Constant241;
+	float Constant242 = (0.0);
+	Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse001.CollisionPenetrationDistance = Constant242;
+	bool Constant243 = (false);
+	Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse001.PhysicsCollidesThisFrame = Constant243;
+	bool Constant244 = false;
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleRemoveRestitution = Constant244;
+	float3 Constant245 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReflectedVelocity = Constant245;
+	float Constant246 = (0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleNormalForceInNewtons = Constant246;
+	int Constant247 = 0;
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.CPUFrictionMergeType = Constant247;
+	float3 Constant248 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleFrictionForceVectorInNewtons = Constant248;
+	float3 Constant249 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleFrictionForceVelocityVector = Constant249;
+	float3 Constant250 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.Collision.CollisionQueryAndResponse001.ModuleReflectedVelocityWithFrictionApplied = Constant250;
+	Collision_CollisionQueryAndResponse001_Emitter_Func_(Context);
+	Context.MapUpdate.OUTPUT_VAR.Collision.ModuleCollision2Valid = Context.MapUpdate.Transient.CollisionValid;
+	Context.MapUpdate.OUTPUT_VAR.Collision.ModuleCollision2Normal = Context.MapUpdate.Transient.CollisionNormal;
+	bool Result219 = Context.MapUpdate.Transient.CollisionValid || Context.MapUpdate.OUTPUT_VAR.Collision.ModuleCollision1Valid;
+	int Constant280 = 1;
+	int Result220 = Context.MapUpdate.Particles.NumberOfCollisions + Constant280;
+	int int32_IfResult;
+	if(Result219)
+	{
+	int32_IfResult = Result220;
+	}
+	else
+	{
+	int32_IfResult = Context.MapUpdate.Particles.NumberOfCollisions;
+	}
+	Context.MapUpdate.Transient.CollisionValid = Result219;
+	Context.MapUpdate.OUTPUT_VAR.Collision.CollisionValid = Result219;
+	Context.MapUpdate.Particles.NumberOfCollisions = int32_IfResult;
+	float Constant281 = 0;
+	bool Result221 = NiagaraAll(Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse.CollisionPenetrationDistance < Constant281);
+	float Constant282 = 0;
+	bool Result222 = NiagaraAll(Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse001.CollisionPenetrationDistance < Constant282);
+	bool Result223 = Result221 && Result222;
+	float PenetrationFixed1;
+	float PenetrationFixed2;
+	PenetrationFixed1 = Result221;
+	PenetrationFixed2 = Result222;
+	float Result224 = PenetrationFixed1 + PenetrationFixed2;
+	float Constant283 = 0.5;
+	float Result225 = Result224 * Constant283;
+	float Result226 = Context.MapUpdate.Engine.DeltaTime * Context.MapUpdate.Constants.Emitter.Collision.RestStateTimeRange;
+	float Result227 = lerp(Context.MapUpdate.Particles.RestCounter,Result225,Result226);
+	bool Result228 = NiagaraAll(Result227 > Context.MapUpdate.Constants.Emitter.Collision.PercentageofPenetrationBeforeRest);
+	float Constant284 = -1;
+	float Result229 = Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse.CollisionPenetrationDistance * Constant284;
+	bool Result230 = NiagaraAll(Result229 > Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse001.CollisionPenetrationDistance);
+	float Constant285 = -1;
+	float Result231 = Context.MapUpdate.Constants.Emitter.Collision.MaximumPenetrationCorrectionDistance * Constant285;
+	bool Result232 = NiagaraAll(Result231 > Context.MapUpdate.OUTPUT_VAR.Collision.CollisionQueryAndResponse001.CollisionPenetrationDistance);
+	bool Result233 = Result230 || Result232;
+	bool Result234 = Result223 || Result228 || Result233;
+	float3 Constant286 = float3(0,0,0);
+	float3 Vector_IfResult12;
+	if(Context.MapUpdate.OUTPUT_VAR.Collision.ModuleCollision1Valid)
+	{
+	Vector_IfResult12 = Context.MapUpdate.OUTPUT_VAR.Collision.ModuleCollision1Normal;
+	}
+	else
+	{
+	Vector_IfResult12 = Constant286;
+	}
+	float3 Constant287 = float3(0,0,0);
+	float3 Vector_IfResult13;
+	if(Context.MapUpdate.OUTPUT_VAR.Collision.ModuleCollision2Valid)
+	{
+	Vector_IfResult13 = Context.MapUpdate.OUTPUT_VAR.Collision.ModuleCollision2Normal;
+	}
+	else
+	{
+	Vector_IfResult13 = Constant287;
+	}
+	float3 Result235 = Vector_IfResult12 + Vector_IfResult13;
+	float3 Constant288 = float3(0,0,1);
+	float Constant289 = 1e-05;
+	float Constant290 = 1;
+	float3 DirectionAndLengthSafe_Func_Output_Direction13;
+	float DirectionAndLengthSafe_Func_Output_Length13;
+	bool DirectionAndLengthSafe_Func_Output_BelowThreshold13;
+	DirectionAndLengthSafe_Func_(Result235, Constant288, Constant289, Constant290, DirectionAndLengthSafe_Func_Output_Direction13, DirectionAndLengthSafe_Func_Output_Length13, DirectionAndLengthSafe_Func_Output_BelowThreshold13, Context);
+	float Result236 = dot(DirectionAndLengthSafe_Func_Output_Direction13,Context.MapUpdate.Constants.Emitter.Collision.ValidCollisionPlaneNormalForRest);
+	float Constant291 = 0.5;
+	float Result237 = Context.MapUpdate.Constants.Emitter.Collision.MinimumCollisionNormalASC47RestNormalAlignmentPercentage - Constant291;
+	float Constant292 = 2;
+	float Result238 = Result237 * Constant292;
+	bool Result239 = NiagaraAll(Result236 > Result238);
+	bool Result240 = Result234 && Result239;
+	bool bool_IfResult1;
+	if(Context.MapUpdate.Collision.ControlRestStateViaSurfaceNormal)
+	{
+	bool_IfResult1 = Result240;
+	}
+	else
+	{
+	bool_IfResult1 = Result234;
+	}
+	bool Result241 = Context.MapUpdate.Collision.EnableRestState && bool_IfResult1 && Context.MapUpdate.Collision.CollisionEnabled;
+	float3 Constant293 = float3(0,0,0);
+	float3 Constant294 = float3(0,0,0);
+	float3 Constant295 = float3(0,0,0);
+	float3 Position_IfResult1;
+	float3 Velocity_IfResult3;
+	float3 Force_IfResult;
+	float deltatime_IfResult;
+	if(Context.MapUpdate.Transient.CollisionValid)
+	{
+	Position_IfResult1 = Context.MapUpdate.Particles.Position;
+	Velocity_IfResult3 = Context.MapUpdate.Particles.Velocity;
+	Force_IfResult = Constant295;
+	deltatime_IfResult = Context.MapUpdate.Transient.PhysicsDeltaTime;
+	}
+	else
+	{
+	Position_IfResult1 = Context.MapUpdate.OUTPUT_VAR.Collision.TempPreviousPosition;
+	Velocity_IfResult3 = Context.MapUpdate.OUTPUT_VAR.Collision.TempPreviousVelocity;
+	Force_IfResult = Context.MapUpdate.OUTPUT_VAR.Collision.TempPreviousForce;
+	deltatime_IfResult = Context.MapUpdate.Engine.DeltaTime;
+	}
+	float3 Position_IfResult2;
+	float3 Velocity_IfResult4;
+	float3 Force_IfResult1;
+	float deltatime_IfResult1;
+	if(Result241)
+	{
+	Position_IfResult2 = Context.MapUpdate.OUTPUT_VAR.Collision.TempPreviousPosition;
+	Velocity_IfResult4 = Constant293;
+	Force_IfResult1 = Constant294;
+	deltatime_IfResult1 = deltatime_IfResult;
+	}
+	else
+	{
+	Position_IfResult2 = Position_IfResult1;
+	Velocity_IfResult4 = Velocity_IfResult3;
+	Force_IfResult1 = Force_IfResult;
+	deltatime_IfResult1 = deltatime_IfResult;
+	}
+	int Constant296 = 1;
+	int Constant297 = 0;
+	bool Constant298 = false;
+	float3 Collision_TransformPosition001_Emitter_Func_Output_OutPosition;
+	Collision_TransformPosition001_Emitter_Func_(Position_IfResult2, Constant296, Constant297, Constant298, Collision_TransformPosition001_Emitter_Func_Output_OutPosition, Context);
+	int Constant300 = 1;
+	int Constant301 = 0;
+	bool Constant302 = false;
+	float3 Collision_TransformVector001_Emitter_Func_Output_OutVector;
+	Collision_TransformVector001_Emitter_Func_(Velocity_IfResult4, Constant300, Constant301, Constant302, Collision_TransformVector001_Emitter_Func_Output_OutVector, Context);
+	int Constant304 = 1;
+	int Constant305 = 0;
+	bool Constant306 = false;
+	float3 Collision_TransformVector_Emitter_Func_Output_OutVector;
+	Collision_TransformVector_Emitter_Func_(Force_IfResult1, Constant304, Constant305, Constant306, Collision_TransformVector_Emitter_Func_Output_OutVector, Context);
+	bool Result245 = Result228 && Context.MapUpdate.Collision.CollisionEnabled;
+	Context.MapUpdate.Particles.Position = Collision_TransformPosition001_Emitter_Func_Output_OutPosition;
+	Context.MapUpdate.Particles.Velocity = Collision_TransformVector001_Emitter_Func_Output_OutVector;
+	Context.MapUpdate.Transient.PhysicsForce = Collision_TransformVector_Emitter_Func_Output_OutVector;
+	Context.MapUpdate.Transient.PhysicsDeltaTime = deltatime_IfResult1;
+	Context.MapUpdate.Transient.CollisionIsResting = Result245;
+	Context.MapUpdate.Particles.RestCounter = Result227;
+	Context.MapUpdate.OUTPUT_VAR.Collision.ModuleCombinedCollisionNormal = DirectionAndLengthSafe_Func_Output_Direction13;
+	Context.MapUpdate.Collision.AdvancedAgingRate = Context.MapUpdate.Constants.Emitter.Collision.AdvancedAgingRate;
+}
+
+float GetSpawnInterpolation()
+{
+	return HackSpawnInterp;
+}
+
+
+void InterpolateParameters(inout FSimulationContext Context)
+{
+	int InterpSpawn_Index = ExecIndex();
+	float InterpSpawn_SpawnTime = Emitter_InterpSpawnStartDt + (Emitter_SpawnInterval * InterpSpawn_Index);
+	float InterpSpawn_UpdateTime = Engine_DeltaTime - InterpSpawn_SpawnTime;
+	float InterpSpawn_InvSpawnTime = 1.0 / InterpSpawn_SpawnTime;
+	float InterpSpawn_InvUpdateTime = 1.0 / InterpSpawn_UpdateTime;
+	float SpawnInterp = InterpSpawn_SpawnTime * Engine_InverseDeltaTime ;
+	HackSpawnInterp = SpawnInterp;
+	Context.MapSpawn.Interpolation.InterpSpawn_Index = InterpSpawn_Index;
+	Context.MapSpawn.Interpolation.InterpSpawn_SpawnTime = InterpSpawn_SpawnTime;
+	Context.MapSpawn.Interpolation.InterpSpawn_UpdateTime = InterpSpawn_UpdateTime;
+	Context.MapSpawn.Interpolation.InterpSpawn_InvSpawnTime = InterpSpawn_InvSpawnTime;
+	Context.MapSpawn.Interpolation.InterpSpawn_InvUpdateTime = InterpSpawn_InvUpdateTime;
+	Context.MapSpawn.Interpolation.SpawnInterp = SpawnInterp;
+	Context.MapSpawn.Interpolation.Emitter_SpawnInterval = Emitter_SpawnInterval;
+	Context.MapSpawn.Interpolation.Emitter_InterpSpawnStartDt = Emitter_InterpSpawnStartDt;
+	Context.MapSpawn.Interpolation.Emitter_SpawnGroup = Emitter_SpawnGroup;
+	Context.MapSpawn.Engine.Time = lerp(PREV_Engine_Time, Engine_Time, SpawnInterp);
+	Context.MapSpawn.Engine.RealTime = lerp(PREV_Engine_RealTime, Engine_RealTime, SpawnInterp);
+	Context.MapSpawn.Engine.Owner.TimeSinceRendered = lerp(PREV_Engine_Owner_TimeSinceRendered, Engine_Owner_TimeSinceRendered, SpawnInterp);
+	Context.MapSpawn.Engine.Owner.LODDistance = lerp(PREV_Engine_Owner_LODDistance, Engine_Owner_LODDistance, SpawnInterp);
+	Context.MapSpawn.Engine.Owner.LODDistanceFraction = lerp(PREV_Engine_Owner_LODDistanceFraction, Engine_Owner_LODDistanceFraction, SpawnInterp);
+	Context.MapSpawn.Engine.System.Age = lerp(PREV_Engine_System_Age, Engine_System_Age, SpawnInterp);
+	Context.MapSpawn.Engine.Owner.Rotation = lerp(PREV_Engine_Owner_Rotation, Engine_Owner_Rotation, SpawnInterp);
+	Context.MapSpawn.Engine.Owner.Position = lerp(PREV_Engine_Owner_Position.xyz, Engine_Owner_Position.xyz, SpawnInterp);
+	Context.MapSpawn.Engine.Owner.Velocity = lerp(PREV_Engine_Owner_Velocity.xyz, Engine_Owner_Velocity.xyz, SpawnInterp);
+	Context.MapSpawn.Engine.Owner.SystemXAxis = lerp(PREV_Engine_Owner_SystemXAxis.xyz, Engine_Owner_SystemXAxis.xyz, SpawnInterp);
+	Context.MapSpawn.Engine.Owner.SystemYAxis = lerp(PREV_Engine_Owner_SystemYAxis.xyz, Engine_Owner_SystemYAxis.xyz, SpawnInterp);
+	Context.MapSpawn.Engine.Owner.SystemZAxis = lerp(PREV_Engine_Owner_SystemZAxis.xyz, Engine_Owner_SystemZAxis.xyz, SpawnInterp);
+	Context.MapSpawn.Engine.Owner.Scale = lerp(PREV_Engine_Owner_Scale.xyz, Engine_Owner_Scale.xyz, SpawnInterp);
+	Context.MapSpawn.Emitter.Age = lerp(PREV_Emitter_Age, Emitter_Age, SpawnInterp);
+	Context.MapSpawn.Engine.DeltaTime = 0.0f;
+	Context.MapSpawn.Engine.InverseDeltaTime = 0.0f;
+	Context.MapUpdate.Engine.DeltaTime = InterpSpawn_UpdateTime;
+	Context.MapUpdate.Engine.InverseDeltaTime = InterpSpawn_InvUpdateTime;
+}
+
+void ReadDataSets(inout FSimulationContext Context)
+{
+}
+
+void WriteDataSets(inout FSimulationContext Context)
+{
+}
+
+void SimulateMapSpawn(inout FSimulationContext Context)
+{
+
+
+	float Constant = 1;
+	Context.MapSpawn.Particles.Lifetime = Constant;
+	float4 Constant1 = float4(1,1,1,1);
+	Context.MapSpawn.Particles.Color = Constant1;
+	float Constant2 = 1;
+	Context.MapSpawn.Particles.Mass = Constant2;
+	float2 Constant3 = float2(10,10);
+	Context.MapSpawn.Particles.SpriteSize = Constant3;
+	float Constant4 = 0;
+	Context.MapSpawn.Particles.SpriteRotation = Constant4;
+	float3 Constant5 = float3(1,1,1);
+	Context.MapSpawn.Particles.Scale = Constant5;
+	float Constant6 = 0;
+	Context.MapSpawn.Particles.MaterialRandom = Constant6;
+	float4 Constant7 = float4(0,0,0,1);
+	Context.MapSpawn.Particles.MeshOrientation = Constant7;
+	float4 Constant8 = float4(0.0, 0.0, 0.0, 1.0);
+	Context.MapSpawn.Particles.InitialRotation = Constant8;
+	float Constant9 = 0;
+	Context.MapSpawn.Particles.Age = Constant9;
+	float Constant10 = (0.0);
+	Context.MapSpawn.Particles.NormalizedAge = Constant10;
+	float3 Constant11 = float3(0,0,0);
+	Context.MapSpawn.Particles.Velocity = Constant11;
+	int Constant12 = 0;
+	Context.MapSpawn.Particles.Collision.CollisionQueryAndResponse.CollisionID = Constant12;
+	bool Constant13 = false;
+	Context.MapSpawn.Particles.HasCollided = Constant13;
+	int Constant14 = 0;
+	Context.MapSpawn.Particles.Collision.CollisionQueryAndResponse001.CollisionID = Constant14;
+	int Constant15 = 0;
+	Context.MapSpawn.Particles.NumberOfCollisions = Constant15;
+	float Constant16 = 0;
+	Context.MapSpawn.Particles.RestCounter = Constant16;
+
+	bool Constant17 = true;
+	bool Constant18 = true;
+	bool Constant19 = false;
+	bool Constant20 = true;
+	float3 ParticleOwnerPosition_Emitter_Func_Output_OutPosition;
+	ParticleOwnerPosition_Emitter_Func_(ParticleOwnerPosition_Emitter_Func_Output_OutPosition, Context);
+	Context.MapSpawn.InitializeParticle.WriteSpriteSize = Constant17;
+	Context.MapSpawn.InitializeParticle.WriteColor = Constant18;
+	Context.MapSpawn.InitializeParticle.WritePosition = Constant19;
+	Context.MapSpawn.InitializeParticle.Position = ParticleOwnerPosition_Emitter_Func_Output_OutPosition;
+	bool Constant23 = true;
+	Context.MapSpawn.InitializeParticle.WriteLifetime = Constant23;
+	bool Constant24 = true;
+	Context.MapSpawn.InitializeParticle.WriteMass = Constant24;
+	bool Constant25 = false;
+	Context.MapSpawn.InitializeParticle.WriteSpriteRotation = Constant25;
+	bool Constant26 = false;
+	Context.MapSpawn.InitializeParticle.WriteScale = Constant26;
+	float3 InitializeParticle_SimulationPosition_Emitter_Func_Output_OutPosition;
+	InitializeParticle_SimulationPosition_Emitter_Func_(InitializeParticle_SimulationPosition_Emitter_Func_Output_OutPosition, Context);
+	Context.MapSpawn.Particles.Position = InitializeParticle_SimulationPosition_Emitter_Func_Output_OutPosition;
+	bool Constant29 = true;
+	Context.MapSpawn.InitializeParticle.WriteMaterialRandom = Constant29;
+	float Constant30 = 0;
+	float Constant31 = 1;
+	int Constant32 = -1;
+	int Constant33 = 0;
+	bool Constant34 = false;
+	float RandomRangeFloat_Func_Output_Result;
+	RandomRangeFloat_Func_(Constant30, Constant31, Constant32, Constant33, Constant34, RandomRangeFloat_Func_Output_Result, Context);
+	Context.MapSpawn.InitializeParticle.MaterialRandom = RandomRangeFloat_Func_Output_Result;
+	EnterStatScope(1 );
+	InitializeParticle_Emitter_Func_(Context);
+	ExitStatScope( );
+	int Constant48 = 1;
+	Context.MapSpawn.InitialMeshOrientation.OrientationCoordinateSpace = Constant48;
+	EnterStatScope(2 );
+	InitialMeshOrientation_Emitter_Func_(Context);
+	ExitStatScope( );
+
+
+
+
+	Context.MapSpawn.Particles.PreviousVelocity = Context.MapSpawn.Particles.Velocity;
+
+
+
+}
+void SimulateMapUpdate(inout FSimulationContext Context)
+{
+
+	bool Constant67 = (false);
+	Context.MapUpdate.OUTPUT_VAR.ParticleState.FirstFrame = Constant67;
+	bool Constant68 = true;
+	Context.MapUpdate.DataInstance.Alive = Constant68;
+	Context.MapUpdate.ParticleState.DeltaTime = Context.MapUpdate.Engine.DeltaTime;
+	Context.MapUpdate.ParticleState.Lifetime = Context.MapUpdate.Particles.Lifetime;
+	EnterStatScope(3 );
+	ParticleState_Emitter_Func_(Context);
+	ExitStatScope( );
+	Context.MapUpdate.Transient.PhysicsDeltaTime = Context.MapUpdate.Engine.DeltaTime;
+	Context.MapUpdate.SolveForcesAndVelocity.DeltaTime = Context.MapUpdate.Transient.PhysicsDeltaTime;
+	float Constant72 = (0.0);
+	Context.MapUpdate.Local.SolveForcesAndVelocity.DeltaTime = Constant72;
+	float3 Constant73 = float3(0,0,0);
+	Context.MapUpdate.Transient.PhysicsForce = Constant73;
+	Context.MapUpdate.SolveForcesAndVelocity.Force = Context.MapUpdate.Transient.PhysicsForce;
+	Context.MapUpdate.SolveForcesAndVelocity.Velocity = Context.MapUpdate.Particles.Velocity;
+	Context.MapUpdate.SolveForcesAndVelocity.Mass = Context.MapUpdate.Particles.Mass;
+	float3 Constant74 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Local.SolveForcesAndVelocity.PhysicsForce = Constant74;
+	float3 Constant75 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.OUTPUT_VAR.SolveForcesAndVelocity.Velocity = Constant75;
+	float Constant76 = (0.0);
+	Context.MapUpdate.Local.SolveForcesAndVelocity.Mass = Constant76;
+	float Constant77 = 0;
+	Context.MapUpdate.Transient.PhysicsDrag = Constant77;
+	Context.MapUpdate.SolveForcesAndVelocity.PreviousVelocity = Context.MapUpdate.Particles.PreviousVelocity;
+	bool Constant78 = true;
+	Context.MapUpdate.SolveForcesAndVelocity.Position = Context.MapUpdate.Particles.Position;
+	float3 Constant79 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.OUTPUT_VAR.SolveForcesAndVelocity.Position = Constant79;
+	bool Constant80 = true;
+	Context.MapUpdate.SolveForcesAndVelocity.WritetoIntrinsicProperties = Constant80;
+	EnterStatScope(4 );
+	SolveForcesAndVelocity_Emitter_Func_(Context);
+	ExitStatScope( );
+	float Constant86 = (0.0);
+	Context.MapUpdate.Local.Collision.ModuleParticleRadius = Constant86;
+	float3 Constant87 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.OUTPUT_VAR.Collision.TempPreviousPosition = Constant87;
+	float3 Constant88 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.OUTPUT_VAR.Collision.TempPreviousForce = Constant88;
+	float3 Constant89 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.OUTPUT_VAR.Collision.TempPreviousVelocity = Constant89;
+	bool Constant90 = true;
+	Context.MapUpdate.Collision.CollisionEnabled = Constant90;
+	bool Constant91 = false;
+	Context.MapUpdate.Collision.RandomizeCollisionNormalVector = Constant91;
+	bool Constant92 = false;
+	Context.MapUpdate.Local.Collision.UpdateMeshRotation = Constant92;
+	float Constant93 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.DynamicFrictionCoefficient = Constant93;
+	float Constant94 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.DynamicFrictionCoefficient = Constant94;
+	float Constant95 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.StaticFrictionCoefficient = Constant95;
+	float Constant96 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.StaticFrictionCoefficient = Constant96;
+	float Constant97 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.StaticFrictionEngagementSpeed = Constant97;
+	float Constant98 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.StaticFrictionEngagementSpeed = Constant98;
+	float Constant99 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.ParticleRadius = Constant99;
+	float Constant100 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.ParticleRadius = Constant100;
+	float Constant101 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.ParticleRestitutionCoeffiecient = Constant101;
+	float Constant102 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.ParticleRestitutionCoeffiecient = Constant102;
+	float Constant103 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.CollisionNormalRandomizationPercentage = Constant103;
+	float Constant104 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.CollisionNormalRandomizationPercentage = Constant104;
+	bool Constant105 = (false);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.CollisionEnabled = Constant105;
+	bool Constant106 = (false);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.CollisionEnabled = Constant106;
+	bool Constant107 = (false);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.RandomizeCollisionNormal = Constant107;
+	bool Constant108 = (false);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.RandomizeCollisionNormal = Constant108;
+	float Constant109 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.BounceCollisionFriction = Constant109;
+	float Constant110 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.BounceCollisionFriction = Constant110;
+	Context.MapUpdate.Collision.CorrectInterpenetration = Context.MapUpdate.OUTPUT_VAR.ParticleState.FirstFrame;
+	float Constant111 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.MaxIntersectionCorrectionDistance = Constant111;
+	float Constant112 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.MaxIntersectionCorrectionDistance = Constant112;
+	float Constant113 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.TraceVectorLengthMultiplier = Constant113;
+	float Constant114 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.TraceVectorLengthMultiplier = Constant114;
+	float Constant115 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse.MaxTraceLength = Constant115;
+	float Constant116 = (0.0);
+	Context.MapUpdate.Collision.CollisionQueryAndResponse001.MaxTraceLength = Constant116;
+	float3 Constant117 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Transient.CollisionParticleWorldPosition = Constant117;
+	float Constant118 = (0.0);
+	Context.MapUpdate.Transient.CollisionDistanceToCollision = Constant118;
+	bool Constant119 = (false);
+	Context.MapUpdate.Transient.CollisionValid = Constant119;
+	float3 Constant120 = float3(0,0,0);
+	Context.MapUpdate.Transient.CollisionNormal = Constant120;
+	float3 Constant121 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.Transient.CollisionVelocity = Constant121;
+	float Constant122 = (0.0);
+	Context.MapUpdate.Transient.CollisionFriction = Constant122;
+	float Constant123 = (0.0);
+	Context.MapUpdate.Transient.CollisionRestitution = Constant123;
+	bool Constant124 = (false);
+	Context.MapUpdate.OUTPUT_VAR.Collision.ModuleCollision1Valid = Constant124;
+	float3 Constant125 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.OUTPUT_VAR.Collision.ModuleCollision1Normal = Constant125;
+	bool Constant126 = (false);
+	Context.MapUpdate.OUTPUT_VAR.Collision.ModuleCollision2Valid = Constant126;
+	float3 Constant127 = float3(0.0, 0.0, 0.0);
+	Context.MapUpdate.OUTPUT_VAR.Collision.ModuleCollision2Normal = Constant127;
+	bool Constant128 = true;
+	Context.MapUpdate.Collision.EnableRestState = Constant128;
+	bool Constant129 = false;
+	Context.MapUpdate.Collision.ControlRestStateViaSurfaceNormal = Constant129;
+	EnterStatScope(5 );
+	Collision_Emitter_Func_(Context);
+	ExitStatScope( );
+
+
+
+}
+void SimulateMain()
+{
+EnterStatScope(6 );
+
+	FSimulationContext Context = (FSimulationContext)0;
+	Context.MapSpawn.Particles.Age = 0.0f;
+	Context.MapSpawn.Particles.Collision.CollisionQueryAndResponse.CollisionID = 0;
+	Context.MapSpawn.Particles.Collision.CollisionQueryAndResponse001.CollisionID = 0;
+	Context.MapSpawn.Particles.Color.r = 0.0f;
+	Context.MapSpawn.Particles.Color.g = 0.0f;
+	Context.MapSpawn.Particles.Color.b = 0.0f;
+	Context.MapSpawn.Particles.Color.a = 0.0f;
+	Context.MapSpawn.Particles.HasCollided = false;
+	Context.MapSpawn.Particles.InitialRotation.x = 0.0f;
+	Context.MapSpawn.Particles.InitialRotation.y = 0.0f;
+	Context.MapSpawn.Particles.InitialRotation.z = 0.0f;
+	Context.MapSpawn.Particles.InitialRotation.w = 0.0f;
+	Context.MapSpawn.Particles.Lifetime = 0.0f;
+	Context.MapSpawn.Particles.Mass = 0.0f;
+	Context.MapSpawn.Particles.MaterialRandom = 0.0f;
+	Context.MapSpawn.Particles.MeshOrientation.x = 0.0f;
+	Context.MapSpawn.Particles.MeshOrientation.y = 0.0f;
+	Context.MapSpawn.Particles.MeshOrientation.z = 0.0f;
+	Context.MapSpawn.Particles.MeshOrientation.w = 0.0f;
+	Context.MapSpawn.Particles.NormalizedAge = 0.0f;
+	Context.MapSpawn.Particles.NumberOfCollisions = 0;
+	Context.MapSpawn.Particles.Position.x = 0.0f;
+	Context.MapSpawn.Particles.Position.y = 0.0f;
+	Context.MapSpawn.Particles.Position.z = 0.0f;
+	Context.MapSpawn.Particles.PreviousVelocity.x = 0.0f;
+	Context.MapSpawn.Particles.PreviousVelocity.y = 0.0f;
+	Context.MapSpawn.Particles.PreviousVelocity.z = 0.0f;
+	Context.MapSpawn.Particles.RestCounter = 0.0f;
+	Context.MapSpawn.Particles.Scale.x = 0.0f;
+	Context.MapSpawn.Particles.Scale.y = 0.0f;
+	Context.MapSpawn.Particles.Scale.z = 0.0f;
+	Context.MapSpawn.Particles.SpriteRotation = 0.0f;
+	Context.MapSpawn.Particles.SpriteSize.x = 0.0f;
+	Context.MapSpawn.Particles.SpriteSize.y = 0.0f;
+	Context.MapSpawn.Particles.UniqueID = 0;
+	Context.MapSpawn.Particles.Velocity.x = 0.0f;
+	Context.MapSpawn.Particles.Velocity.y = 0.0f;
+	Context.MapSpawn.Particles.Velocity.z = 0.0f;
+	Context.MapSpawn.Particles.UniqueID = Engine_Emitter_TotalSpawnedParticles + ExecIndex();
+	Context.MapSpawn.Engine.Owner.Position = Engine_Owner_Position.xyz;
+	Context.MapSpawn.Constants.Emitter.InitializeParticle.Lifetime = Constants_Emitter_InitializeParticle_Lifetime;
+	Context.MapSpawn.Constants.Emitter.InitializeParticle.Color = Constants_Emitter_InitializeParticle_Color;
+	Context.MapSpawn.Constants.Emitter.InitializeParticle.Mass = Constants_Emitter_InitializeParticle_Mass;
+	Context.MapSpawn.Constants.Emitter.InitializeParticle.SpriteSize = Constants_Emitter_InitializeParticle_SpriteSize;
+	Context.MapSpawn.Constants.Emitter.InitializeParticle.SpriteRotation = Constants_Emitter_InitializeParticle_SpriteRotation;
+	Context.MapSpawn.Constants.Emitter.InitializeParticle.MeshScale = Constants_Emitter_InitializeParticle_MeshScale;
+	Context.MapSpawn.Emitter.RandomSeed = Emitter_RandomSeed;
+	Context.MapSpawn.Engine.System.TickCount = Engine_System_TickCount;
+	Context.MapSpawn.Constants.Emitter.InitialMeshOrientation.Rotation = Constants_Emitter_InitialMeshOrientation_Rotation;
+	Context.MapSpawn.Constants.Emitter.InitialMeshOrientation.OrientationVector = Constants_Emitter_InitialMeshOrientation_OrientationVector;
+	Context.MapSpawn.Constants.Emitter.InitialMeshOrientation.OrientationAxis = Constants_Emitter_InitialMeshOrientation_OrientationAxis;
+	Context.MapSpawn.Engine.Owner.SystemLocalToWorld = Engine_Owner_SystemLocalToWorld;
+	Context.MapSpawn.Engine.Owner.SystemWorldToLocal = Engine_Owner_SystemWorldToLocal;
+	Context.MapSpawn.Engine.Owner.SystemLocalToWorldNoScale = Engine_Owner_SystemLocalToWorldNoScale;
+	Context.MapSpawn.Engine.Owner.SystemWorldToLocalNoScale = Engine_Owner_SystemWorldToLocalNoScale;
+	Context.MapUpdate.Engine.DeltaTime = Engine_DeltaTime;
+	Context.MapUpdate.Constants.Emitter.SolveForcesAndVelocity.SpeedLimit = Constants_Emitter_SolveForcesAndVelocity_SpeedLimit;
+	Context.MapUpdate.Constants.Emitter.SolveForcesAndVelocity.AccelerationLimit = Constants_Emitter_SolveForcesAndVelocity_AccelerationLimit;
+	Context.MapUpdate.Engine.Owner.Position = Engine_Owner_Position.xyz;
+	Context.MapUpdate.Constants.Emitter.Collision.ParticleRadiusScale = Constants_Emitter_Collision_ParticleRadiusScale;
+	Context.MapUpdate.Engine.Owner.SystemLocalToWorld = Engine_Owner_SystemLocalToWorld;
+	Context.MapUpdate.Engine.Owner.SystemWorldToLocal = Engine_Owner_SystemWorldToLocal;
+	Context.MapUpdate.Engine.Owner.SystemLocalToWorldNoScale = Engine_Owner_SystemLocalToWorldNoScale;
+	Context.MapUpdate.Engine.Owner.SystemWorldToLocalNoScale = Engine_Owner_SystemWorldToLocalNoScale;
+	Context.MapUpdate.Constants.Emitter.Collision.Friction = Constants_Emitter_Collision_Friction;
+	Context.MapUpdate.Constants.Emitter.Collision.StaticFriction = Constants_Emitter_Collision_StaticFriction;
+	Context.MapUpdate.Constants.Emitter.Collision.StaticFrictionEngagementSpeed = Constants_Emitter_Collision_StaticFrictionEngagementSpeed;
+	Context.MapUpdate.Constants.Emitter.Collision.Restitution = Constants_Emitter_Collision_Restitution;
+	Context.MapUpdate.Constants.Emitter.Collision.RandomizeCollisionNormal = Constants_Emitter_Collision_RandomizeCollisionNormal;
+	Context.MapUpdate.Constants.Emitter.Collision.FrictionDuringaBounce = Constants_Emitter_Collision_FrictionDuringaBounce;
+	Context.MapUpdate.Constants.Emitter.Collision.CPUTraceVectorLengthMultiplier = Constants_Emitter_Collision_CPUTraceVectorLengthMultiplier;
+	Context.MapUpdate.Constants.Emitter.Collision.MaxCPUTraceLength = Constants_Emitter_Collision_MaxCPUTraceLength;
+	Context.MapUpdate.Constants.Emitter.Collision.PercentageofPenetrationBeforeRest = Constants_Emitter_Collision_PercentageofPenetrationBeforeRest;
+	Context.MapUpdate.Constants.Emitter.Collision.RestStateTimeRange = Constants_Emitter_Collision_RestStateTimeRange;
+	Context.MapUpdate.Constants.Emitter.Collision.MaximumPenetrationCorrectionDistance = Constants_Emitter_Collision_MaximumPenetrationCorrectionDistance;
+	Context.MapUpdate.Constants.Emitter.Collision.ValidCollisionPlaneNormalForRest = Constants_Emitter_Collision_ValidCollisionPlaneNormalForRest;
+	Context.MapUpdate.Constants.Emitter.Collision.MinimumCollisionNormalASC47RestNormalAlignmentPercentage = Constants_Emitter_Collision_MinimumCollisionNormalASC47RestNormalAlignmentPercentage;
+	Context.MapUpdate.Constants.Emitter.Collision.AdvancedAgingRate = Constants_Emitter_Collision_AdvancedAgingRate;
+	Context.MapUpdate.Engine.Time = Engine_Time;
+	Context.MapUpdate.Engine.InverseDeltaTime = Engine_InverseDeltaTime;
+	Context.MapUpdate.Engine.ExecutionCount = Engine_ExecutionCount;
+	Context.MapUpdate.Emitter.SpawnRate = Emitter_SpawnRate;
+	Context.MapUpdate.Emitter.SpawnInterval = Emitter_SpawnInterval;
+	Context.MapUpdate.Emitter.InterpSpawnStartDt = Emitter_InterpSpawnStartDt;
+	Context.MapUpdate.Emitter.SpawnGroup = Emitter_SpawnGroup;
+	Context.MapUpdate.Engine.Emitter.TotalSpawnedParticles = Engine_Emitter_TotalSpawnedParticles;
+	Context.MapUpdate.Emitter.RandomSeed = Emitter_RandomSeed;
+	ReadDataSets(Context);
+	InterpolateParameters(Context);
+	SimulateMapSpawn(Context);
+
+	Context.MapUpdate.Particles = Context.MapSpawn.Particles;
+
+
+	SimulateMapUpdate(Context);
+	WriteDataSets(Context);
+	{
+	bool bValid = Context.MapUpdate.DataInstance.Alive;
+	int TmpWriteIndex = OutputIndex(0, true, bValid);
+	OutputDataFloat(0, 0, TmpWriteIndex, Context.MapUpdate.Particles.Age);
+	OutputDataInt(0, 1, TmpWriteIndex, Context.MapUpdate.Particles.Collision.CollisionQueryAndResponse.CollisionID);
+	OutputDataInt(0, 2, TmpWriteIndex, Context.MapUpdate.Particles.Collision.CollisionQueryAndResponse001.CollisionID);
+	OutputDataFloat(0, 3, TmpWriteIndex, Context.MapUpdate.Particles.Color.r);
+	OutputDataFloat(0, 4, TmpWriteIndex, Context.MapUpdate.Particles.Color.g);
+	OutputDataFloat(0, 5, TmpWriteIndex, Context.MapUpdate.Particles.Color.b);
+	OutputDataFloat(0, 6, TmpWriteIndex, Context.MapUpdate.Particles.Color.a);
+	OutputDataBool(0, 7, TmpWriteIndex, Context.MapUpdate.Particles.HasCollided);
+	OutputDataFloat(0, 8, TmpWriteIndex, Context.MapUpdate.Particles.InitialRotation.x);
+	OutputDataFloat(0, 9, TmpWriteIndex, Context.MapUpdate.Particles.InitialRotation.y);
+	OutputDataFloat(0, 10, TmpWriteIndex, Context.MapUpdate.Particles.InitialRotation.z);
+	OutputDataFloat(0, 11, TmpWriteIndex, Context.MapUpdate.Particles.InitialRotation.w);
+	OutputDataFloat(0, 12, TmpWriteIndex, Context.MapUpdate.Particles.Lifetime);
+	OutputDataFloat(0, 13, TmpWriteIndex, Context.MapUpdate.Particles.Mass);
+	OutputDataFloat(0, 14, TmpWriteIndex, Context.MapUpdate.Particles.MaterialRandom);
+	OutputDataFloat(0, 15, TmpWriteIndex, Context.MapUpdate.Particles.MeshOrientation.x);
+	OutputDataFloat(0, 16, TmpWriteIndex, Context.MapUpdate.Particles.MeshOrientation.y);
+	OutputDataFloat(0, 17, TmpWriteIndex, Context.MapUpdate.Particles.MeshOrientation.z);
+	OutputDataFloat(0, 18, TmpWriteIndex, Context.MapUpdate.Particles.MeshOrientation.w);
+	OutputDataFloat(0, 19, TmpWriteIndex, Context.MapUpdate.Particles.NormalizedAge);
+	OutputDataInt(0, 20, TmpWriteIndex, Context.MapUpdate.Particles.NumberOfCollisions);
+	OutputDataFloat(0, 21, TmpWriteIndex, Context.MapUpdate.Particles.Position.x);
+	OutputDataFloat(0, 22, TmpWriteIndex, Context.MapUpdate.Particles.Position.y);
+	OutputDataFloat(0, 23, TmpWriteIndex, Context.MapUpdate.Particles.Position.z);
+	OutputDataFloat(0, 24, TmpWriteIndex, Context.MapUpdate.Particles.PreviousVelocity.x);
+	OutputDataFloat(0, 25, TmpWriteIndex, Context.MapUpdate.Particles.PreviousVelocity.y);
+	OutputDataFloat(0, 26, TmpWriteIndex, Context.MapUpdate.Particles.PreviousVelocity.z);
+	OutputDataFloat(0, 27, TmpWriteIndex, Context.MapUpdate.Particles.RestCounter);
+	OutputDataFloat(0, 28, TmpWriteIndex, Context.MapUpdate.Particles.Scale.x);
+	OutputDataFloat(0, 29, TmpWriteIndex, Context.MapUpdate.Particles.Scale.y);
+	OutputDataFloat(0, 30, TmpWriteIndex, Context.MapUpdate.Particles.Scale.z);
+	OutputDataFloat(0, 31, TmpWriteIndex, Context.MapUpdate.Particles.SpriteRotation);
+	OutputDataFloat(0, 32, TmpWriteIndex, Context.MapUpdate.Particles.SpriteSize.x);
+	OutputDataFloat(0, 33, TmpWriteIndex, Context.MapUpdate.Particles.SpriteSize.y);
+	OutputDataInt(0, 34, TmpWriteIndex, Context.MapUpdate.Particles.UniqueID);
+	OutputDataFloat(0, 35, TmpWriteIndex, Context.MapUpdate.Particles.Velocity.x);
+	OutputDataFloat(0, 36, TmpWriteIndex, Context.MapUpdate.Particles.Velocity.y);
+	OutputDataFloat(0, 37, TmpWriteIndex, Context.MapUpdate.Particles.Velocity.z);
+	}
+ExitStatScope( );
+}
+#line 703 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+
+#if 0 /*BEGIN_RESOURCE_TABLES*/
+NULL, 0
+NULL, NULL, 0, 0
+#endif /*END_RESOURCE_TABLES*/
